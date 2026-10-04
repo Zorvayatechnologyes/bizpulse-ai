@@ -1,6 +1,6 @@
 /* ============================================================
    BizPulse AI — data layer
-   Data model, sample businesses, persistence, formatting helpers.
+   Data model, sample templates, persistence, formatting helpers.
    Exposes: window.BPData
    ============================================================ */
 (function () {
@@ -63,7 +63,7 @@
   }
   function num(v) { const n = Number(v); return isFinite(n) ? n : 0; }
 
-  /* ---------- sample businesses ---------- */
+  /* ---------- sample templates ---------- */
   function buildSample(spec) {
     const months = [];
     let cur = { year: spec.startYear, month0: spec.startMonth0 };
@@ -95,10 +95,10 @@
   const SAMPLE_SPECS = {
     retail: {
       key: 'retail',
-      title: 'Nimbus Retail Pvt Ltd',
-      blurb: 'Omni-channel retailer. Steady growth, thin margins, heavy inventory costs. ₹ INR.',
+      title: 'Retail template',
+      blurb: 'Illustrative template — an omni-channel retailer with steady growth and thin margins. Not a real company. ₹ INR.',
       seed: 20240115,
-      name: 'Nimbus Retail Pvt Ltd',
+      name: 'Sample Retail Business',
       industry: 'Retail',
       currency: 'INR',
       startYear: 2024, startMonth0: 4, count: 12,
@@ -121,10 +121,10 @@
     },
     saas: {
       key: 'saas',
-      title: 'Loopwork (SaaS)',
-      blurb: 'Early-stage B2B SaaS. High burn, strong growth, investor-funded. $ USD.',
+      title: 'SaaS template',
+      blurb: 'Illustrative template — an early-stage B2B SaaS with high burn and strong growth. Not a real company. $ USD.',
       seed: 777001,
-      name: 'Loopwork Inc.',
+      name: 'Sample SaaS Business',
       industry: 'Software / SaaS',
       currency: 'USD',
       startYear: 2024, startMonth0: 6, count: 12,
@@ -144,10 +144,10 @@
     },
     foods: {
       key: 'foods',
-      title: 'Spice Route Foods',
-      blurb: 'Two-outlet restaurant group. Profitable, seasonal, healthy cash position. ₹ INR.',
+      title: 'Restaurant template',
+      blurb: 'Illustrative template — a two-outlet restaurant group, profitable and seasonal. Not a real company. ₹ INR.',
       seed: 55123,
-      name: 'Spice Route Foods LLP',
+      name: 'Sample Restaurant Business',
       industry: 'Food & beverage',
       currency: 'INR',
       startYear: 2024, startMonth0: 3, count: 12,

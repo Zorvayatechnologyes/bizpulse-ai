@@ -9,7 +9,9 @@ orchestrator produces one prioritised action plan and a health score.
 
 1. Open `index.html` (or the deployed URL) in any modern browser.
 2. Go to **Data** and either enter months by hand, upload a CSV/Excel file, or
-   load a sample business from the **Demo data** tab.
+   load a sample template from the **Demo data** tab. The samples are generic
+   illustrative templates — they are **not** real companies and use no real
+   business's name or data.
 3. Open **Dashboard** for KPIs and charts, and **Agents** to read each agent's
    findings. **Report** gives a printable summary.
 
@@ -28,7 +30,7 @@ the app still works using the built-in narrative writer.
 
 - `index.html` — the page
 - `styles.css` — styling
-- `js/data.js` — data model, sample businesses, formatting, storage
+- `js/data.js` — data model, sample templates, formatting, storage
 - `js/engine.js` — the deterministic metrics engine
 - `js/agents.js` — the seven agents and the orchestrator
 - `js/llm.js` — optional live-AI narrative layer

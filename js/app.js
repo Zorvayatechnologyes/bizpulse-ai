@@ -441,7 +441,7 @@
     D.sampleList().forEach(s => {
       grid.appendChild(h('div', { class: 'demo-card', onclick: () => loadSample(s.key) }, [
         h('h4', {}, [s.title]), h('p', {}, [s.blurb]),
-        h('button', { class: 'btn primary small', style: 'margin-top:10px' }, ['Load this business'])
+        h('button', { class: 'btn primary small', style: 'margin-top:10px' }, ['Load this template'])
       ]));
     });
   }
@@ -452,7 +452,7 @@
     selectedMonthId = state.months.length ? state.months[0].id : null;
     syncDataForm(); syncSettingsForm(); recompute(); renderMonthList(); renderEditor();
     showView('dashboard');
-    toast('Loaded sample business');
+    toast('Loaded sample template');
   }
 
   function clearData() {
