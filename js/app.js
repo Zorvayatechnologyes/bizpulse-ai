@@ -54,6 +54,31 @@
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (p[name] || '') + '</svg>';
   }
 
+  function sparkline(vals, color) {
+    if (!vals || vals.length < 2) return '';
+    const w = 120, h = 30, pad = 5;
+    const min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+    const range = (max - min) || 1;
+    const step = (w - pad * 2) / (vals.length - 1);
+    const pts = vals.map((v, i) => [pad + i * step, h - pad - ((v - min) / range) * (h - pad * 2)]);
+    const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+    const area = line + ' L' + (pad + (vals.length - 1) * step).toFixed(1) + ' ' + (h - pad) + ' L' + pad + ' ' + (h - pad) + ' Z';
+    const id = 'sg' + Math.random().toString(36).slice(2, 8);
+    return '<svg class="spark" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">' +
+      '<defs><linearGradient id="' + id + '" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0%" stop-color="' + color + '" stop-opacity=".30"/>' +
+      '<stop offset="100%" stop-color="' + color + '" stop-opacity=".05"/></linearGradient></defs>' +
+      '<path d="' + area + '" fill="url(#' + id + ')"/>' +
+      '<path d="' + line + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>' +
+      '</svg>';
+  }
+
+  function initials(name) {
+    const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '';
+    return parts.slice(0, 2).map(p => p[0].toUpperCase()).join('');
+  }
+
   function toggleMenu(force) {
     const s = document.querySelector('.sidebar'); if (!s) return;
     const open = force === undefined ? !s.classList.contains('open') : force;
@@ -69,8 +94,14 @@
 
   /* ---------- bootstrap ---------- */
   function init() {
-    const loaded = D.load();
-    if (loaded) state = loaded;
+    const params = new URLSearchParams(location.search);
+    const demoKey = params.get('demo');
+    if (demoKey && D.sampleList().some(x => x.key === demoKey)) {
+      state = D.sampleState(demoKey);
+    } else {
+      const loaded = D.load();
+      if (loaded) state = loaded;
+    }
     const s = D.loadSettings();
     if (s) settings = Object.assign(settings, s, { llm: Object.assign(settings.llm, s.llm || {}) });
     if (state.business.currency) settings.currency = state.business.currency;
@@ -88,8 +119,9 @@
     updateAiBadge();
 
     recompute();
-    if (state.months.length) { showView('dashboard'); }
-    else { showView('dashboard'); }
+    const v = params.get('view');
+    const valid = ['dashboard', 'data', 'agents', 'report', 'settings'];
+    showView(v && valid.indexOf(v) !== -1 ? v : 'dashboard');
   }
 
   function recompute() {
@@ -143,13 +175,15 @@
     const trendCls = t => t === 'up' ? 'trend-up' : t === 'down' ? 'trend-down' : 'trend-flat';
     const trendArrow = t => t === 'up' ? '▲' : t === 'down' ? '▼' : '■';
 
+    const TONE = { 'tone-good': '#4F9077', 'tone-watch': '#A87A2E', 'tone-crit': '#B96E6E', '': '#7FA8A8' };
+    const runningProfit = (() => { let s = 0; return m.months.map(r => (s += r.netProfit)); })();
     const items = [
-      { icon: 'trend', tone: m.trend.revenue === 'up' ? 'tone-good' : m.trend.revenue === 'down' ? 'tone-crit' : '', label: 'Revenue / month', value: money(m.avg.revenue), sub: 'latest ' + money(m.growth.lastRevenue), info: 'Average monthly revenue across the period.' },
-      { icon: 'percent', tone: m.avg.netMargin >= 0.1 ? 'tone-good' : m.avg.netMargin >= 0 ? 'tone-watch' : 'tone-crit', label: 'Net profit rate', value: pct(m.avg.netMargin), sub: 'avg profit ' + money(m.avg.netProfit), cls: m.avg.netMargin >= 0 ? 'trend-up' : 'trend-down', info: 'Net profit ÷ revenue, averaged. (revenue − all expenses) ÷ revenue.' },
-      { icon: 'flame', tone: m.burn.profitable ? 'tone-good' : 'tone-crit', label: 'Net burn / month', value: m.burn.profitable ? 'Positive' : money(m.burn.netBurn), sub: m.burn.profitable ? 'cash-flow positive' : 'spend − revenue', cls: m.burn.profitable ? 'trend-up' : 'trend-down', info: 'Monthly expenses minus monthly revenue, 3-month average. Positive = burning cash.' },
-      { icon: 'clock', tone: m.burn.profitable || m.burn.runwayMonths >= 12 ? 'tone-good' : m.burn.runwayMonths >= 6 ? 'tone-watch' : 'tone-crit', label: 'Runway', value: m.burn.profitable ? '∞' : D.formatMonths(m.burn.runwayMonths), sub: 'cash ' + money(m.cash.cashOnHand), info: 'Cash on hand ÷ net monthly burn.' },
-      { icon: 'card', tone: '', label: 'Cash position', value: money(m.cash.end), sub: 'low ' + money(m.cash.lowest), info: 'Closing cash balance and the lowest point reached.' },
-      { icon: 'activity', tone: m.health.score >= 65 ? 'tone-good' : m.health.score >= 45 ? 'tone-watch' : 'tone-crit', label: 'Health score', value: String(m.health.score) + '/100', sub: 'Grade ' + m.health.grade, cls: m.health.score >= 65 ? 'trend-up' : m.health.score >= 45 ? 'trend-flat' : 'trend-down', info: 'Weighted score across profitability, liquidity, growth, cost control and stability.' }
+      { icon: 'trend', tone: m.trend.revenue === 'up' ? 'tone-good' : m.trend.revenue === 'down' ? 'tone-crit' : '', spark: m.months.map(r => r.revenue), label: 'Revenue / month', value: money(m.avg.revenue), sub: 'latest ' + money(m.growth.lastRevenue), info: 'Average monthly revenue across the period.' },
+      { icon: 'percent', tone: m.avg.netMargin >= 0.1 ? 'tone-good' : m.avg.netMargin >= 0 ? 'tone-watch' : 'tone-crit', spark: m.months.map(r => r.netMargin), label: 'Net profit rate', value: pct(m.avg.netMargin), sub: 'avg profit ' + money(m.avg.netProfit), cls: m.avg.netMargin >= 0 ? 'trend-up' : 'trend-down', info: 'Net profit ÷ revenue, averaged. (revenue − all expenses) ÷ revenue.' },
+      { icon: 'flame', tone: m.burn.profitable ? 'tone-good' : 'tone-crit', spark: m.months.map(r => r.netBurn), label: 'Net burn / month', value: m.burn.profitable ? 'Positive' : money(m.burn.netBurn), sub: m.burn.profitable ? 'cash-flow positive' : 'spend − revenue', cls: m.burn.profitable ? 'trend-up' : 'trend-down', info: 'Monthly expenses minus monthly revenue, 3-month average. Positive = burning cash.' },
+      { icon: 'clock', tone: m.burn.profitable || m.burn.runwayMonths >= 12 ? 'tone-good' : m.burn.runwayMonths >= 6 ? 'tone-watch' : 'tone-crit', spark: m.months.map(r => r.cumulativeCash), label: 'Runway', value: m.burn.profitable ? 'Unlimited' : D.formatMonths(m.burn.runwayMonths), sub: 'cash ' + money(m.cash.cashOnHand), info: 'Cash on hand ÷ net monthly burn. Unlimited means the business is not burning cash.' },
+      { icon: 'card', tone: '', spark: m.months.map(r => r.cumulativeCash), label: 'Cash position', value: money(m.cash.end), sub: 'low ' + money(m.cash.lowest), info: 'Closing cash balance and the lowest point reached.' },
+      { icon: 'activity', tone: m.health.score >= 65 ? 'tone-good' : m.health.score >= 45 ? 'tone-watch' : 'tone-crit', spark: runningProfit, label: 'Health score', value: String(m.health.score) + '/100', sub: 'Grade ' + m.health.grade, cls: m.health.score >= 65 ? 'trend-up' : m.health.score >= 45 ? 'trend-flat' : 'trend-down', info: 'Weighted score across profitability, liquidity, growth, cost control and stability.' }
     ];
     items.forEach(it => {
       strip.appendChild(h('div', { class: 'kpi' }, [
@@ -159,11 +193,13 @@
         ]),
         h('div', { class: 'k-label' }, [it.label]),
         h('div', { class: 'k-value ' + (it.cls || '') }, [it.value]),
-        h('div', { class: 'k-sub' }, [it.sub])
+        h('div', { class: 'k-sub' }, [it.sub]),
+        h('div', { class: 'k-spark', html: sparkline(it.spark, TONE[it.tone || ''] || '#7FA8A8') })
       ]));
     });
     el('dashTitle').textContent = state.business.name ? state.business.name + ' — overview' : 'Business overview';
     const tbn = el('topBizName'); if (tbn) tbn.textContent = state.business.name || 'Your business';
+    const av = el('topAvatar'); if (av) av.textContent = initials(state.business.name) || 'BP';
     el('dashSubtitle').textContent = m.n + ' months · ' + m.first.pretty + ' → ' + m.last.pretty;
     el('chartHintRev').textContent = 'peak ' + money(Math.max.apply(null, m.months.map(r => r.revenue)));
     el('chartHintBurn').textContent = m.burn.profitable ? 'cash-flow positive' : 'runway ' + D.formatMonths(m.burn.runwayMonths);
@@ -197,6 +233,12 @@
     ]));
     const ol = h('ol', {}, o.priorities.map(p => h('li', {}, [p.text])));
     box.appendChild(h('div', { class: 'priority' }, [h('h4', {}, ['Prioritised actions']), ol]));
+    if (o.components && o.components.length) {
+      box.appendChild(h('div', { class: 'hero-comps' }, o.components.map(c => h('div', { class: 'hcomp' }, [
+        h('div', { class: 'hcomp-top' }, [h('span', {}, [c.label]), h('b', {}, [String(c.score)])]),
+        h('div', { class: 'hcomp-track' }, [h('div', { class: 'hcomp-fill', style: 'width:' + c.score + '%' })])
+      ]))));
+    }
   }
 
   function renderAgentGridPreview() {
@@ -226,7 +268,7 @@
   /* ================= AGENTS VIEW ================= */
   function bindAgentsView() {
     el('btnRunAgents').addEventListener('click', runAgents);
-    el('btnRunAgents2').addEventListener('click', runAgents);
+    const b2 = el('btnRunAgents2'); if (b2) b2.addEventListener('click', runAgents);
     el('askBtn').addEventListener('click', doAsk);
     el('askInput').addEventListener('keydown', e => { if (e.key === 'Enter') doAsk(); });
     renderAskSuggest();
@@ -281,7 +323,7 @@
   async function runAgents() {
     if (!state.months.length) { toast('Add some data first'); return; }
     if (running) return; running = true;
-    const btns = [el('btnRunAgents'), el('btnRunAgents2')];
+    const btns = [el('btnRunAgents'), el('btnRunAgents2')].filter(Boolean);
     btns.forEach(b => { b.dataset.t = b.textContent; b.innerHTML = '<span class="spin"></span> Running…'; b.disabled = true; });
 
     recompute(); // fresh deterministic results

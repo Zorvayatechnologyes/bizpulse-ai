@@ -6,6 +6,9 @@
 <title>BizPulse AI — Multi-Agent Business Analyst</title>
 <meta name="description" content="BizPulse AI analyses your business across profit rate, burn rate, cash flow, growth and risk using a team of specialist AI agents." />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -77,6 +80,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-ico"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
           Run agents
         </button>
+        <div class="avatar" id="topAvatar" title="Workspace">BP</div>
       </div>
     </header>
 
@@ -121,11 +125,11 @@
               <div class="chart-wrap"><canvas id="chartRevExp"></canvas></div>
             </div>
             <div class="card chart-card">
-              <div class="card-head"><h3>Net profit &amp; margin</h3><span class="hint">margin on right axis</span></div>
+              <div class="card-head"><h3>Net profit &amp; margin</h3></div>
               <div class="chart-wrap"><canvas id="chartProfit"></canvas></div>
             </div>
             <div class="card chart-card">
-              <div class="card-head"><h3>Cash flow &amp; cash position</h3><span class="hint">in / out / running balance</span></div>
+              <div class="card-head"><h3>Cash flow &amp; cash position</h3><span class="hint">running balance on right</span></div>
               <div class="chart-wrap"><canvas id="chartCash"></canvas></div>
             </div>
             <div class="card chart-card">
@@ -250,9 +254,6 @@
           <div>
             <h1>Your AI agent team</h1>
             <p class="sub">Each agent analyses one slice of the business, then the CFO orchestrator pulls it together.</p>
-          </div>
-          <div class="page-actions">
-            <button class="btn primary" id="btnRunAgents2">Run all agents</button>
           </div>
         </div>
 

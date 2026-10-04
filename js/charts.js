@@ -6,7 +6,7 @@
   const D = window.BPData;
   const store = {};
 
-  const PALETTE = ['#5D6B6B', '#9FC0C1', '#F7CBCA', '#D5E5E5', '#DDD3D3', '#7FA8A8', '#E4A9A8', '#B8CFCF', '#8B9898', '#CFDDDD'];
+  const PALETTE = ['#5D6B6B', '#9FC0C1', '#E9A9A7', '#B8CFCF', '#C9A9A6', '#7FA8A8', '#E3C79A', '#A9BFBF', '#8B9898', '#D5E5E5'];
 
   function money(v, cur) { return D.formatMoney(v, cur, 'compact'); }
 
@@ -17,6 +17,8 @@
     Chart.defaults.color = '#5D6B6B';
     Chart.defaults.plugins.legend.labels.boxWidth = 10;
     Chart.defaults.plugins.legend.labels.usePointStyle = true;
+    Chart.defaults.plugins.legend.labels.padding = 14;
+    Chart.defaults.layout = { padding: { top: 4, bottom: 2 } };
     Chart.defaults.maintainAspectRatio = false;
   }
 
@@ -53,7 +55,7 @@
         ]
       },
       options: { plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + money(c.parsed.y, cur) } } },
-        scales: { x: { grid: { display: false } }, y: Object.assign({ beginAtZero: true }, gridY(), { ticks: { callback: v => money(v, cur), maxTicksLimit: 6 } }) } }
+        scales: { x: { grid: { display: false }, ticks: { autoSkip: true, maxTicksLimit: 8, maxRotation: 0 } }, y: Object.assign({ beginAtZero: true }, gridY(), { ticks: { callback: v => money(v, cur), maxTicksLimit: 6 } }) } }
     });
 
     /* 2 — net profit + margin */
@@ -69,7 +71,7 @@
       options: {
         plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + (c.dataset.yAxisID === 'y1' ? c.parsed.y + '%' : money(c.parsed.y, cur)) } } },
         scales: {
-          x: { grid: { display: false } },
+          x: { grid: { display: false }, ticks: { autoSkip: true, maxTicksLimit: 8, maxRotation: 0 } },
           y: Object.assign({ beginAtZero: true }, gridY(), { ticks: { callback: v => money(v, cur), maxTicksLimit: 6 } }),
           y1: { position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: v => v + '%', maxTicksLimit: 6 } }
         }
@@ -90,7 +92,7 @@
       options: {
         plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + money(c.parsed.y, cur) } } },
         scales: {
-          x: { grid: { display: false } },
+          x: { grid: { display: false }, ticks: { autoSkip: true, maxTicksLimit: 8, maxRotation: 0 } },
           y: Object.assign({ beginAtZero: true }, gridY(), { ticks: { callback: v => money(v, cur), maxTicksLimit: 6 } }),
           y1: { position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: v => money(v, cur), maxTicksLimit: 6 } }
         }
@@ -109,7 +111,7 @@
       },
       options: {
         plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + money(c.parsed.y, cur) } } },
-        scales: { x: { grid: { display: false } }, y: Object.assign({}, gridY(), { ticks: { callback: v => money(v, cur), maxTicksLimit: 6 } }) }
+        scales: { x: { grid: { display: false }, ticks: { autoSkip: true, maxTicksLimit: 8, maxRotation: 0 } }, y: Object.assign({}, gridY(), { ticks: { callback: v => money(v, cur), maxTicksLimit: 6 } }) }
       }
     });
 
@@ -118,10 +120,11 @@
     const expRest = m.expenseBreakdown.slice(6).reduce((a, b) => a + b.amount, 0);
     const expLabels = expTop.map(e => e.name).concat(expRest > 0 ? ['Other'] : []);
     const expData = expTop.map(e => e.amount).concat(expRest > 0 ? [expRest] : []);
+    const expColors = expLabels.map((l, i) => l === 'Other' ? '#9AA6A6' : PALETTE[i % PALETTE.length]);
     make('chartExpenseMix', {
       type: 'doughnut',
-      data: { labels: expLabels, datasets: [{ data: expData, backgroundColor: PALETTE, borderWidth: 2, borderColor: '#fff' }] },
-      options: { cutout: '58%', plugins: { legend: { position: 'right' }, tooltip: { callbacks: { label: c => c.label + ': ' + money(c.parsed, cur) + ' (' + D.formatPct(m.totals.expenses ? c.parsed / m.totals.expenses : 0, 0) + ')' } } } }
+      data: { labels: expLabels, datasets: [{ data: expData, backgroundColor: expColors, borderWidth: 2, borderColor: '#fff' }] },
+      options: { cutout: '60%', plugins: { legend: { position: 'right', labels: { padding: 12 } }, tooltip: { callbacks: { label: c => c.label + ': ' + money(c.parsed, cur) + ' (' + D.formatPct(m.totals.expenses ? c.parsed / m.totals.expenses : 0, 0) + ')' } } } }
     });
 
     /* 6 — revenue mix */
@@ -129,10 +132,11 @@
     const revRest = m.revenueBreakdown.slice(6).reduce((a, b) => a + b.amount, 0);
     const revLabels = revTop.map(e => e.name).concat(revRest > 0 ? ['Other'] : []);
     const revData = revTop.map(e => e.amount).concat(revRest > 0 ? [revRest] : []);
+    const revColors = revLabels.map((l, i) => l === 'Other' ? '#9AA6A6' : PALETTE[i % PALETTE.length]);
     make('chartRevenueMix', {
       type: 'doughnut',
-      data: { labels: revLabels, datasets: [{ data: revData, backgroundColor: PALETTE.slice().reverse(), borderWidth: 2, borderColor: '#fff' }] },
-      options: { cutout: '58%', plugins: { legend: { position: 'right' }, tooltip: { callbacks: { label: c => c.label + ': ' + money(c.parsed, cur) + ' (' + D.formatPct(m.totals.revenue ? c.parsed / m.totals.revenue : 0, 0) + ')' } } } }
+      data: { labels: revLabels, datasets: [{ data: revData, backgroundColor: revColors, borderWidth: 2, borderColor: '#fff' }] },
+      options: { cutout: '60%', plugins: { legend: { position: 'right', labels: { padding: 12 } }, tooltip: { callbacks: { label: c => c.label + ': ' + money(c.parsed, cur) + ' (' + D.formatPct(m.totals.revenue ? c.parsed / m.totals.revenue : 0, 0) + ')' } } } }
     });
   }
 

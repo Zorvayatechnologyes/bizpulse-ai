@@ -388,7 +388,7 @@
       'The single most important next move: ' + priorities[0].text;
 
     return {
-      id: 'cfo', name: 'CFO Orchestrator', role: 'Lead agent · synthesis', icon: '🧭', color: '#111a2e',
+      id: 'cfo', name: 'CFO Orchestrator', role: 'Lead agent · synthesis', icon: '🧭', color: '#4B5757',
       blurb: 'Reads every specialist agent and produces one prioritised plan plus an overall health score.',
       isOrchestrator: true,
       severity: sev,
