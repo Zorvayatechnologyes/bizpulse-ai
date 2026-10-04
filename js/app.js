@@ -42,6 +42,27 @@
   }
   function debounce(fn, ms) { let t; return function () { clearTimeout(t); const a = arguments; t = setTimeout(() => fn.apply(null, a), ms); }; }
 
+  function kIcon(name) {
+    const p = {
+      trend: '<path d="M3 17l5-5 3.5 3.5L21 7"/><path d="M15 7h6v6"/>',
+      percent: '<path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.2"/><circle cx="17" cy="17" r="2.2"/>',
+      flame: '<path d="M12 22c4 0 6.5-2.6 6.5-6 0-3-2-5.2-3.2-7.2C14.1 6.6 13.5 5 13.5 3c-2.2 2-3.5 4.2-3.5 6.2 0 1 .4 2 .4 2S9 9.6 9 7.6C7.4 9.6 6 12 6 16c0 3.4 2.4 6 6 6z"/>',
+      clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/>',
+      card: '<rect x="3" y="6" width="18" height="12" rx="2.5"/><path d="M3 10.5h18"/>',
+      activity: '<path d="M22 12h-4l-2.5 7L9 5l-2.5 7H2"/>'
+    };
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (p[name] || '') + '</svg>';
+  }
+
+  function toggleMenu(force) {
+    const s = document.querySelector('.sidebar'); if (!s) return;
+    const open = force === undefined ? !s.classList.contains('open') : force;
+    s.classList.toggle('open', open);
+    const bd = document.getElementById('backdrop');
+    if (bd) bd.classList.toggle('show', open);
+  }
+  function closeMenu() { toggleMenu(false); }
+
   /* ---------- persistence ---------- */
   function persist() { D.save(state); D.saveSettings(settings); }
   const persistSoon = debounce(persist, 350);
@@ -54,6 +75,10 @@
     if (s) settings = Object.assign(settings, s, { llm: Object.assign(settings.llm, s.llm || {}) });
     if (state.business.currency) settings.currency = state.business.currency;
 
+    if (!document.getElementById('backdrop')) {
+      const bd = document.createElement('div'); bd.id = 'backdrop'; bd.className = 'backdrop';
+      document.body.appendChild(bd);
+    }
     bindNav();
     bindDataView();
     bindAgentsView();
@@ -94,10 +119,17 @@
       const b = e.target.closest('.nav-btn'); if (!b) return;
       showView(b.getAttribute('data-nav'));
     });
+    const mb = el('menuBtn');
+    if (mb) mb.addEventListener('click', () => toggleMenu());
+    const bd = document.getElementById('backdrop');
+    if (bd) bd.addEventListener('click', () => toggleMenu(false));
   }
   function showView(name) {
     document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-nav') === name));
+    const titles = { dashboard: 'Overview', data: 'Business data', agents: 'AI agents', report: 'Report', settings: 'Settings' };
+    const tt = el('topTitle'); if (tt) tt.textContent = titles[name] || 'Overview';
+    closeMenu();
     window.scrollTo({ top: 0, behavior: 'smooth' });
     if (name === 'dashboard' && metrics && !metrics.empty) setTimeout(() => renderCharts(), 30);
     if (name === 'agents' && agentResults && agentResults.specialists.length) renderAgentList();
@@ -112,21 +144,26 @@
     const trendArrow = t => t === 'up' ? '▲' : t === 'down' ? '▼' : '■';
 
     const items = [
-      { label: 'Revenue / mo', value: money(m.avg.revenue), sub: 'latest ' + money(m.growth.lastRevenue), info: 'Average monthly revenue across the period.' },
-      { label: 'Net profit rate', value: pct(m.avg.netMargin), sub: 'avg profit ' + money(m.avg.netProfit), cls: m.avg.netMargin >= 0 ? 'trend-up' : 'trend-down', info: 'Net profit ÷ revenue, averaged. (revenue − all expenses) ÷ revenue.' },
-      { label: 'Net burn / mo', value: m.burn.profitable ? 'Positive' : money(m.burn.netBurn), sub: m.burn.profitable ? 'cash-flow positive' : 'spend − revenue', cls: m.burn.profitable ? 'trend-up' : 'trend-down', info: 'Monthly expenses minus monthly revenue, 3-month average. Positive = burning cash.' },
-      { label: 'Runway', value: m.burn.profitable ? '∞' : D.formatMonths(m.burn.runwayMonths), sub: 'cash ' + money(m.cash.cashOnHand), info: 'Cash on hand ÷ net monthly burn.' },
-      { label: 'Cash position', value: money(m.cash.end), sub: 'low ' + money(m.cash.lowest), info: 'Closing cash balance and the lowest point reached.' },
-      { label: 'Health score', value: String(m.health.score) + '/100', sub: 'Grade ' + m.health.grade, cls: m.health.score >= 65 ? 'trend-up' : m.health.score >= 45 ? 'trend-flat' : 'trend-down', info: 'Weighted score across profitability, liquidity, growth, cost control and stability.' }
+      { icon: 'trend', tone: m.trend.revenue === 'up' ? 'tone-good' : m.trend.revenue === 'down' ? 'tone-crit' : '', label: 'Revenue / month', value: money(m.avg.revenue), sub: 'latest ' + money(m.growth.lastRevenue), info: 'Average monthly revenue across the period.' },
+      { icon: 'percent', tone: m.avg.netMargin >= 0.1 ? 'tone-good' : m.avg.netMargin >= 0 ? 'tone-watch' : 'tone-crit', label: 'Net profit rate', value: pct(m.avg.netMargin), sub: 'avg profit ' + money(m.avg.netProfit), cls: m.avg.netMargin >= 0 ? 'trend-up' : 'trend-down', info: 'Net profit ÷ revenue, averaged. (revenue − all expenses) ÷ revenue.' },
+      { icon: 'flame', tone: m.burn.profitable ? 'tone-good' : 'tone-crit', label: 'Net burn / month', value: m.burn.profitable ? 'Positive' : money(m.burn.netBurn), sub: m.burn.profitable ? 'cash-flow positive' : 'spend − revenue', cls: m.burn.profitable ? 'trend-up' : 'trend-down', info: 'Monthly expenses minus monthly revenue, 3-month average. Positive = burning cash.' },
+      { icon: 'clock', tone: m.burn.profitable || m.burn.runwayMonths >= 12 ? 'tone-good' : m.burn.runwayMonths >= 6 ? 'tone-watch' : 'tone-crit', label: 'Runway', value: m.burn.profitable ? '∞' : D.formatMonths(m.burn.runwayMonths), sub: 'cash ' + money(m.cash.cashOnHand), info: 'Cash on hand ÷ net monthly burn.' },
+      { icon: 'card', tone: '', label: 'Cash position', value: money(m.cash.end), sub: 'low ' + money(m.cash.lowest), info: 'Closing cash balance and the lowest point reached.' },
+      { icon: 'activity', tone: m.health.score >= 65 ? 'tone-good' : m.health.score >= 45 ? 'tone-watch' : 'tone-crit', label: 'Health score', value: String(m.health.score) + '/100', sub: 'Grade ' + m.health.grade, cls: m.health.score >= 65 ? 'trend-up' : m.health.score >= 45 ? 'trend-flat' : 'trend-down', info: 'Weighted score across profitability, liquidity, growth, cost control and stability.' }
     ];
     items.forEach(it => {
       strip.appendChild(h('div', { class: 'kpi' }, [
-        h('div', { class: 'k-label' }, [h('span', {}, [it.label]), h('span', { class: 'k-info', title: it.info }, ['i'])]),
+        h('div', { class: 'kpi-top' }, [
+          h('span', { class: 'k-icon ' + (it.tone || ''), html: kIcon(it.icon) }),
+          h('span', { class: 'k-info', title: it.info }, ['i'])
+        ]),
+        h('div', { class: 'k-label' }, [it.label]),
         h('div', { class: 'k-value ' + (it.cls || '') }, [it.value]),
         h('div', { class: 'k-sub' }, [it.sub])
       ]));
     });
     el('dashTitle').textContent = state.business.name ? state.business.name + ' — overview' : 'Business overview';
+    const tbn = el('topBizName'); if (tbn) tbn.textContent = state.business.name || 'Your business';
     el('dashSubtitle').textContent = m.n + ' months · ' + m.first.pretty + ' → ' + m.last.pretty;
     el('chartHintRev').textContent = 'peak ' + money(Math.max.apply(null, m.months.map(r => r.revenue)));
     el('chartHintBurn').textContent = m.burn.profitable ? 'cash-flow positive' : 'runway ' + D.formatMonths(m.burn.runwayMonths);
@@ -137,24 +174,29 @@
     const box = el('orchestratorPanel'); box.innerHTML = '';
     const sevLabel = o.severity === 'critical' ? 'Needs attention' : o.severity === 'watch' ? 'Watch closely' : 'Healthy';
     const narr = liveNarratives['cfo'] ? liveNarratives['cfo'].text : o.narrative;
+    const ringColor = o.score >= 80 ? '#A9D8C2' : o.score >= 65 ? '#BDD7D8' : o.score >= 50 ? '#E3D3A8' : '#E8B4B4';
+    const CIRC = 2 * Math.PI * 42;
+    const dashOff = CIRC * (1 - Math.max(0, Math.min(100, o.score)) / 100);
+    const ringHtml =
+      '<svg class="ring" viewBox="0 0 100 100">' +
+        '<circle class="ring-track" cx="50" cy="50" r="42"></circle>' +
+        '<circle class="ring-fill" cx="50" cy="50" r="42" stroke="' + ringColor + '" style="stroke-dasharray:' + CIRC.toFixed(1) + ';stroke-dashoffset:' + dashOff.toFixed(1) + '"></circle>' +
+      '</svg>' +
+      '<div class="ring-label"><span class="score-num">' + o.score + '</span><span class="score-lbl">Grade ' + o.grade + '</span></div>';
     box.appendChild(h('div', { class: 'hero-top' }, [
-      h('div', { style: 'flex:1;min-width:260px' }, [
-        h('div', { class: 'hero-role' }, ['CFO Orchestrator · lead agent']),
+      h('div', { class: 'hero-main' }, [
+        h('div', { class: 'hero-role' }, ['CFO Orchestrator · lead agent · ' + sevLabel]),
         h('h2', {}, ['Executive summary']),
-        h('p', { html: esc(narr).replace(/\n/g, '<br>') })
+        h('p', { html: esc(narr).replace(/\n/g, '<br>') }),
+        h('div', { class: 'hero-actions' }, [
+          h('button', { class: 'btn ghost', onclick: () => showView('agents') }, ['See all agents']),
+          h('button', { class: 'btn ghost', onclick: () => showView('report') }, ['Open report'])
+        ])
       ]),
-      h('div', { class: 'score-ring' }, [
-        h('div', { class: 'score-num' }, [String(o.score)]),
-        h('div', { class: 'score-lbl' }, ['Grade ' + o.grade + ' · ' + sevLabel]),
-        h('div', { class: 'score-track' }, [h('div', { class: 'score-fill', style: 'width:' + o.score + '%' })])
-      ])
+      h('div', { class: 'score-ring', html: ringHtml })
     ]));
     const ol = h('ol', {}, o.priorities.map(p => h('li', {}, [p.text])));
     box.appendChild(h('div', { class: 'priority' }, [h('h4', {}, ['Prioritised actions']), ol]));
-    box.appendChild(h('div', { class: 'hero-actions' }, [
-      h('button', { class: 'btn ghost', onclick: () => showView('agents') }, ['See all agents']),
-      h('button', { class: 'btn ghost', onclick: () => showView('report') }, ['Open report'])
-    ]));
   }
 
   function renderAgentGridPreview() {
@@ -718,6 +760,8 @@
     if (mode === 'running') { badge.classList.add('live'); txt.textContent = 'Live AI running…'; return; }
     badge.classList.toggle('live', configured);
     txt.textContent = configured ? 'Live LLM · ' + (settings.llm.provider === 'anthropic' ? 'Anthropic' : 'OpenAI') : 'Built-in mode';
+    const st = el('sideTipText');
+    if (st) st.textContent = configured ? 'Live AI is on — the agents write their commentary with your LLM.' : 'Numbers are computed locally. Add a key for LLM-written commentary.';
   }
 
   function exportJson() {

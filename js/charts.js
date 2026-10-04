@@ -6,7 +6,7 @@
   const D = window.BPData;
   const store = {};
 
-  const PALETTE = ['#3b4bd8', '#0ea5a4', '#7c3aed', '#d97706', '#e0533d', '#0891b2', '#65a30d', '#db2777', '#475569', '#a16207'];
+  const PALETTE = ['#5D6B6B', '#9FC0C1', '#F7CBCA', '#D5E5E5', '#DDD3D3', '#7FA8A8', '#E4A9A8', '#B8CFCF', '#8B9898', '#CFDDDD'];
 
   function money(v, cur) { return D.formatMoney(v, cur, 'compact'); }
 
@@ -14,7 +14,7 @@
     if (!window.Chart) return;
     Chart.defaults.font.family = "'Inter',-apple-system,Segoe UI,Roboto,sans-serif";
     Chart.defaults.font.size = 11.5;
-    Chart.defaults.color = '#4a5570';
+    Chart.defaults.color = '#5D6B6B';
     Chart.defaults.plugins.legend.labels.boxWidth = 10;
     Chart.defaults.plugins.legend.labels.usePointStyle = true;
     Chart.defaults.maintainAspectRatio = false;
@@ -29,7 +29,7 @@
   }
 
   function gridY() {
-    return { grid: { color: '#eef0f7', drawBorder: false }, ticks: { maxTicksLimit: 6 } };
+    return { grid: { color: '#E4EDED', drawBorder: false }, ticks: { maxTicksLimit: 6 } };
   }
 
   function render(m, settings) {
@@ -48,8 +48,8 @@
       data: {
         labels,
         datasets: [
-          { label: 'Revenue', data: m.months.map(r => r.revenue), backgroundColor: '#3b4bd8', borderRadius: 4, maxBarThickness: 26 },
-          { label: 'Expenses', data: m.months.map(r => r.expenses), backgroundColor: '#c7ccf5', borderRadius: 4, maxBarThickness: 26 }
+          { label: 'Revenue', data: m.months.map(r => r.revenue), backgroundColor: '#5D6B6B', borderRadius: 6, maxBarThickness: 26 },
+          { label: 'Expenses', data: m.months.map(r => r.expenses), backgroundColor: '#BDD7D8', borderRadius: 6, maxBarThickness: 26 }
         ]
       },
       options: { plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + money(c.parsed.y, cur) } } },
@@ -62,8 +62,8 @@
       data: {
         labels,
         datasets: [
-          { label: 'Net profit', data: m.months.map(r => r.netProfit), backgroundColor: m.months.map(r => r.netProfit >= 0 ? '#16a34a' : '#dc2626'), borderRadius: 4, maxBarThickness: 26, yAxisID: 'y' },
-          { label: 'Net margin', data: m.months.map(r => +(r.netMargin * 100).toFixed(1)), type: 'line', borderColor: '#7c3aed', backgroundColor: '#7c3aed', tension: 0.35, pointRadius: 3, yAxisID: 'y1' }
+          { label: 'Net profit', data: m.months.map(r => r.netProfit), backgroundColor: m.months.map(r => r.netProfit >= 0 ? '#5F9E83' : '#C07878'), borderRadius: 6, maxBarThickness: 26, yAxisID: 'y' },
+          { label: 'Net margin', data: m.months.map(r => +(r.netMargin * 100).toFixed(1)), type: 'line', borderColor: '#7FA8A8', backgroundColor: '#7FA8A8', borderWidth: 2.5, tension: 0.35, pointRadius: 3, yAxisID: 'y1' }
         ]
       },
       options: {
@@ -82,9 +82,9 @@
       data: {
         labels,
         datasets: [
-          { label: 'Cash in', data: m.months.map(r => r.cashIn), backgroundColor: '#0ea5a4', borderRadius: 4, maxBarThickness: 20, yAxisID: 'y' },
-          { label: 'Cash out', data: m.months.map(r => r.cashOut), backgroundColor: '#f0b7ae', borderRadius: 4, maxBarThickness: 20, yAxisID: 'y' },
-          { label: 'Cash balance', data: m.months.map(r => r.cumulativeCash), type: 'line', borderColor: '#111a2e', backgroundColor: '#111a2e', tension: 0.35, pointRadius: 2, yAxisID: 'y1' }
+          { label: 'Cash in', data: m.months.map(r => r.cashIn), backgroundColor: '#5F9E83', borderRadius: 5, maxBarThickness: 20, yAxisID: 'y' },
+          { label: 'Cash out', data: m.months.map(r => r.cashOut), backgroundColor: '#E0AEAC', borderRadius: 5, maxBarThickness: 20, yAxisID: 'y' },
+          { label: 'Cash balance', data: m.months.map(r => r.cumulativeCash), type: 'line', borderColor: '#5D6B6B', backgroundColor: '#5D6B6B', borderWidth: 2.5, tension: 0.35, pointRadius: 2, yAxisID: 'y1' }
         ]
       },
       options: {
@@ -103,8 +103,8 @@
       data: {
         labels,
         datasets: [
-          { label: 'Gross burn', data: m.months.map(r => r.grossBurn), borderColor: '#e0533d', backgroundColor: 'rgba(224,83,61,.12)', fill: true, tension: 0.35, pointRadius: 2 },
-          { label: 'Net burn', data: m.months.map(r => r.netBurn), borderColor: '#d97706', backgroundColor: 'rgba(217,119,6,.12)', fill: true, tension: 0.35, pointRadius: 2 }
+          { label: 'Gross burn', data: m.months.map(r => r.grossBurn), borderColor: '#C07878', backgroundColor: 'rgba(192,120,120,.14)', borderWidth: 2.5, fill: true, tension: 0.35, pointRadius: 2 },
+          { label: 'Net burn', data: m.months.map(r => r.netBurn), borderColor: '#B0863F', backgroundColor: 'rgba(176,134,63,.14)', borderWidth: 2.5, fill: true, tension: 0.35, pointRadius: 2 }
         ]
       },
       options: {
