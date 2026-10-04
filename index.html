@@ -48,6 +48,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
         <span>Report</span>
       </button>
+      <button class="nav-btn" data-nav="knowledge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 5.5v15"/><path d="M8.5 7.5h7M8.5 11h5"/></svg>
+        <span>Knowledge</span>
+      </button>
       <button class="nav-btn" data-nav="settings">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3 14a1.6 1.6 0 0 0-1.5-1H1a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 2.6 7a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 7 3a1.6 1.6 0 0 0 1-1.5V1a2 2 0 1 1 4 0v.1A1.6 1.6 0 0 0 14 2.6a1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.6 1.6 0 0 0 19.4 7c.3.6.9 1 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>
         <span>Settings</span>
@@ -57,7 +61,7 @@
     <div class="sidebar-foot">
       <div class="side-tip">
         <div class="side-tip-title">Live AI</div>
-        <p id="sideTipText">Numbers are computed locally. Add a key for LLM-written commentary.</p>
+        <p id="sideTipText">Numbers are computed locally, and the agents write their own commentary with a free AI service — no API key needed.</p>
         <button class="side-tip-btn" data-nav="settings">Open settings</button>
       </div>
     </div>
@@ -78,7 +82,7 @@
       </div>
       <div class="topbar-right">
         <span class="ai-badge" id="aiBadge" title="Narrative engine status">
-          <span class="dot"></span><span id="aiBadgeText">Built-in mode</span>
+          <span class="dot"></span><span id="aiBadgeText">Live AI · Free</span>
         </span>
         <button class="btn primary" id="btnRunAgents">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-ico"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
@@ -98,10 +102,9 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 3.5 3.5L21 7"/><path d="M15 7h6v6"/></svg>
             </div>
             <h1>Welcome to BizPulse AI</h1>
-            <p>Your AI finance team is ready. Load a sample template to see it in action, or add your own numbers.</p>
+            <p>Your AI finance team is ready. Add your numbers to get started.</p>
             <div class="empty-actions">
-              <button class="btn primary" id="emptyDemo">Load a sample template</button>
-              <button class="btn ghost" data-nav="data">Enter my data</button>
+              <button class="btn primary" data-nav="data">Enter my data</button>
             </div>
             <p class="tiny">Everything runs in your browser. Your data never leaves this device unless you enable live AI.</p>
           </div>
@@ -160,14 +163,13 @@
         <div class="page-head">
           <div>
             <h1>Business data</h1>
-            <p class="sub">Add your numbers by hand, upload a spreadsheet, or explore with a sample template.</p>
+            <p class="sub">Add your numbers by hand or upload a spreadsheet.</p>
           </div>
         </div>
 
         <div class="tabs" id="dataTabs">
           <button class="tab active" data-tab="manual">Manual entry</button>
           <button class="tab" data-tab="upload">CSV / Excel upload</button>
-          <button class="tab" data-tab="demo">Demo data</button>
         </div>
 
         <!-- MANUAL -->
@@ -261,17 +263,6 @@
           </div>
         </div>
 
-        <!-- DEMO -->
-        <div class="tabpane" id="pane-demo">
-          <div class="card">
-            <div class="card-head"><h3>Sample templates</h3></div>
-            <p class="muted">Load an illustrative 12-month dataset to explore every agent and chart. These are generic templates for demonstration — they are <strong>not</strong> real companies, and loading one replaces your current data.</p>
-            <div class="demo-grid" id="demoGrid"></div>
-            <div class="row-actions">
-              <button class="btn danger ghost" id="btnClearData">Clear all data</button>
-            </div>
-          </div>
-        </div>
       </section>
 
       <!-- ================= AGENTS ================= -->
@@ -399,21 +390,22 @@
             <span class="hint">optional</span>
           </div>
           <p class="muted">
-            The numbers are always computed by BizPulse itself. When you add a key, each agent's written
-            commentary is generated live by an LLM instead of the built-in writer. Your key is stored only in
-            this browser and is sent directly to the provider you choose.
+            The numbers are always computed by BizPulse itself, and each agent's written commentary is always
+            generated live by a free AI service that needs no API key. If you prefer, you can switch to your own
+            OpenAI or Anthropic key instead — a key is never required.
           </p>
           <div class="form-row two">
             <label>Provider
               <select id="setProvider">
+                <option value="free">Free — no API key needed</option>
                 <option value="openai">OpenAI (or compatible)</option>
                 <option value="anthropic">Anthropic</option>
               </select>
             </label>
-            <label>Model<input type="text" id="setModel" placeholder="gpt-4o-mini" /></label>
+            <label>Model<input type="text" id="setModel" placeholder="leave blank for the default" /></label>
           </div>
-          <div class="form-row">
-            <label>API key<input type="password" id="setApiKey" placeholder="paste key — stored locally only" autocomplete="off" /></label>
+          <div class="form-row" id="apiKeyRow">
+            <label>API key (only needed for OpenAI / Anthropic)<input type="password" id="setApiKey" placeholder="not needed for the free provider" autocomplete="off" /></label>
           </div>
           <div class="form-row hidden" id="baseUrlRow">
             <label>Base URL (OpenAI-compatible)<input type="text" id="setBaseUrl" placeholder="https://api.openai.com/v1" /></label>
@@ -436,8 +428,9 @@
             They flag what is good, what to watch and what is critical, then give concrete recommendations.</p>
             <p><strong>The orchestrator.</strong> The lead CFO agent reads every specialist's findings, resolves
             conflicts and produces one prioritised action list plus an overall health score.</p>
-            <p><strong>Hybrid AI.</strong> Logic computes the numbers; the LLM (when enabled) writes the narrative. With
-            no key, a built-in writer composes the commentary from the same numbers — so nothing ever breaks.</p>
+            <p><strong>Hybrid AI.</strong> Logic computes the numbers; a free, keyless AI service writes the narrative.
+            You can point it at your own OpenAI or Anthropic key if you like, and if a call ever fails a built-in writer
+            composes the commentary from the same numbers — so nothing ever breaks.</p>
           </div>
         </div>
 
@@ -452,10 +445,29 @@
         </div>
       </section>
 
+      <!-- ================= KNOWLEDGE ================= -->
+      <section class="view" id="view-knowledge">
+        <div class="page-head">
+          <div>
+            <h1>Knowledge</h1>
+            <p class="sub">A plain-English glossary of the business and finance terms and formulas BizPulse uses, grouped by topic.</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <h3>Search the glossary</h3>
+            <span class="hint" id="knowledgeCount"></span>
+          </div>
+          <input type="text" id="knowledgeSearch" placeholder="Search a term, e.g. runway, margin, CAGR..." autocomplete="off" />
+        </div>
+        <div id="knowledgeBody"></div>
+        <p class="tiny">Definitions are simplified for business owners and are not financial advice. Where a formula is shown, BizPulse computes that figure from your own data.</p>
+      </section>
+
     </main>
 
     <footer class="footer no-print">
-      <span>BizPulse AI — a demonstration business-analysis tool. Figures are estimates from the data you enter and are not financial advice.</span>
+      <span>BizPulse AI — a business-analysis tool. Figures are estimates from the data you enter and are not financial advice.</span>
     </footer>
   </div>
 </div>

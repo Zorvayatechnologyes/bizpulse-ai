@@ -1,6 +1,6 @@
 /* ============================================================
    BizPulse AI — data layer
-   Data model, sample templates, persistence, formatting helpers.
+   Data model, persistence, formatting helpers.
    Exposes: window.BPData
    ============================================================ */
 (function () {
@@ -31,12 +31,6 @@
     return MONTH_NAMES[month0] + ' ' + year;
   }
 
-  /* ---------- seeded random for reproducible samples ---------- */
-  function seeded(seed) {
-    let s = seed >>> 0;
-    return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
-  }
-
   /* ---------- revenue / expense taxonomies ---------- */
   const REVENUE_CATEGORIES = ['Product', 'Services', 'Subscriptions', 'Other'];
   const EXPENSE_TYPES = ['fixed', 'variable', 'one-off'];
@@ -62,119 +56,6 @@
     };
   }
   function num(v) { const n = Number(v); return isFinite(n) ? n : 0; }
-
-  /* ---------- sample templates ---------- */
-  function buildSample(spec) {
-    const months = [];
-    let cur = { year: spec.startYear, month0: spec.startMonth0 };
-    const rnd = seeded(spec.seed);
-    for (let i = 0; i < spec.count; i++) {
-      const rev = spec.revenue.map(item => {
-        const base = item.base * Math.pow(1 + item.growth, i);
-        const noise = 1 + (rnd() - 0.5) * (item.vol || 0.16);
-        const seasonal = item.seasonal ? item.seasonal[i % item.seasonal.length] : 1;
-        return { name: item.name, category: item.category, amount: Math.round(base * noise * seasonal) };
-      });
-      const exp = spec.expenses.map(item => {
-        const base = item.base * Math.pow(1 + (item.growth || 0), i);
-        const noise = 1 + (rnd() - 0.5) * (item.vol || 0.07);
-        const oneoff = item.oneoffAt === i ? item.oneoffAmount : 0;
-        return { name: item.name, type: item.type, amount: Math.round(base * noise + oneoff) };
-      });
-      months.push(month(monthLabel(cur.year, cur.month0), rev, exp));
-      cur = addMonths(cur.year, cur.month0, 1);
-    }
-    return {
-      business: { name: spec.name, industry: spec.industry || '', foundedYear: '', employees: '', currency: spec.currency, target: 0 },
-      cashOnHand: spec.cashOnHand,
-      months: months,
-      meetings: []
-    };
-  }
-
-  const SAMPLE_SPECS = {
-    retail: {
-      key: 'retail',
-      title: 'Retail template',
-      blurb: 'Illustrative template — an omni-channel retailer with steady growth and thin margins. Not a real company. ₹ INR.',
-      seed: 20240115,
-      name: 'Sample Retail Business',
-      industry: 'Retail',
-      currency: 'INR',
-      startYear: 2024, startMonth0: 4, count: 12,
-      cashOnHand: 6000000,
-      revenue: [
-        { name: 'Store sales', category: 'Product', base: 1050000, growth: 0.018, vol: 0.12, seasonal: [1, 0.92, 1.05, 1.0, 1.12, 1.08, 0.95, 1.0, 1.15, 1.28, 1.35, 1.1] },
-        { name: 'Online store', category: 'Product', base: 520000, growth: 0.055, vol: 0.18 },
-        { name: 'Wholesale accounts', category: 'Other', base: 380000, growth: 0.01, vol: 0.22 }
-      ],
-      expenses: [
-        { name: 'Store rent', type: 'fixed', base: 260000, growth: 0.004, vol: 0.01 },
-        { name: 'Staff salaries', type: 'fixed', base: 470000, growth: 0.012, vol: 0.02 },
-        { name: 'Inventory / COGS', type: 'variable', base: 720000, growth: 0.02, vol: 0.14 },
-        { name: 'Logistics', type: 'variable', base: 105000, growth: 0.03, vol: 0.16 },
-        { name: 'Marketing', type: 'variable', base: 130000, growth: 0.02, vol: 0.25 },
-        { name: 'Utilities', type: 'fixed', base: 62000, growth: 0.01, vol: 0.08 },
-        { name: 'Software & tools', type: 'fixed', base: 38000, growth: 0.02, vol: 0.04 },
-        { name: 'Equipment upgrade', type: 'one-off', base: 0, oneoffAt: 7, oneoffAmount: 320000 }
-      ]
-    },
-    saas: {
-      key: 'saas',
-      title: 'SaaS template',
-      blurb: 'Illustrative template — an early-stage B2B SaaS with high burn and strong growth. Not a real company. $ USD.',
-      seed: 777001,
-      name: 'Sample SaaS Business',
-      industry: 'Software / SaaS',
-      currency: 'USD',
-      startYear: 2024, startMonth0: 6, count: 12,
-      cashOnHand: 920000,
-      revenue: [
-        { name: 'Subscription plans', category: 'Subscriptions', base: 41000, growth: 0.11, vol: 0.07 },
-        { name: 'Professional services', category: 'Services', base: 14000, growth: 0.05, vol: 0.3 }
-      ],
-      expenses: [
-        { name: 'Engineering salaries', type: 'fixed', base: 92000, growth: 0.02, vol: 0.02 },
-        { name: 'Sales & marketing', type: 'variable', base: 58000, growth: 0.045, vol: 0.2 },
-        { name: 'Cloud & hosting', type: 'variable', base: 17000, growth: 0.09, vol: 0.12 },
-        { name: 'G&A', type: 'fixed', base: 24000, growth: 0.015, vol: 0.05 },
-        { name: 'Office & tools', type: 'fixed', base: 14000, growth: 0.01, vol: 0.05 },
-        { name: 'Conference booth', type: 'one-off', base: 0, oneoffAt: 5, oneoffAmount: 42000 }
-      ]
-    },
-    foods: {
-      key: 'foods',
-      title: 'Restaurant template',
-      blurb: 'Illustrative template — a two-outlet restaurant group, profitable and seasonal. Not a real company. ₹ INR.',
-      seed: 55123,
-      name: 'Sample Restaurant Business',
-      industry: 'Food & beverage',
-      currency: 'INR',
-      startYear: 2024, startMonth0: 3, count: 12,
-      cashOnHand: 10000000,
-      revenue: [
-        { name: 'Dine-in', category: 'Product', base: 1250000, growth: 0.006, vol: 0.1, seasonal: [1, 1.0, 1.05, 0.95, 0.9, 0.85, 1.0, 1.1, 1.2, 1.35, 1.3, 1.15] },
-        { name: 'Delivery', category: 'Product', base: 560000, growth: 0.03, vol: 0.14 },
-        { name: 'Catering & events', category: 'Services', base: 240000, growth: 0.01, vol: 0.35 }
-      ],
-      expenses: [
-        { name: 'Kitchen staff', type: 'fixed', base: 380000, growth: 0.012, vol: 0.02 },
-        { name: 'Outlet rent', type: 'fixed', base: 300000, growth: 0.005, vol: 0.01 },
-        { name: 'Food ingredients', type: 'variable', base: 620000, growth: 0.008, vol: 0.12 },
-        { name: 'Delivery commissions', type: 'variable', base: 96000, growth: 0.03, vol: 0.14 },
-        { name: 'Utilities & gas', type: 'fixed', base: 85000, growth: 0.012, vol: 0.1 },
-        { name: 'Marketing', type: 'variable', base: 55000, growth: 0.02, vol: 0.25 },
-        { name: 'Renovation', type: 'one-off', base: 0, oneoffAt: 9, oneoffAmount: 410000 }
-      ]
-    }
-  };
-
-  function sampleState(key) {
-    const spec = SAMPLE_SPECS[key];
-    if (!spec) return emptyState();
-    return buildSample(spec);
-  }
-  function sampleList() { return Object.values(SAMPLE_SPECS).map(s => ({ key: s.key, title: s.title, blurb: s.blurb })); }
 
   /* ---------- persistence ---------- */
   function save(state) {
@@ -256,7 +137,7 @@
     uid, month, num,
     addMonths, monthLabel, labelToParts, prettyLabel, MONTH_NAMES,
     REVENUE_CATEGORIES, EXPENSE_TYPES, EXPENSE_TYPE_LABEL, INDUSTRIES,
-    emptyState, sampleState, sampleList,
+    emptyState,
     save, load, clear, saveSettings, loadSettings,
     symbol, formatMoney, formatNumber, formatPct, formatMonths
   };

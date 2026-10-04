@@ -8,32 +8,30 @@ orchestrator produces one prioritised action plan and a health score.
 ## Using it
 
 1. Open `index.html` (or the deployed URL) in any modern browser.
-2. Go to **Data** and either enter months by hand, upload a CSV/Excel file, or
-   load a sample template from the **Demo data** tab. The samples are generic
-   illustrative templates — they are **not** real companies and use no real
-   business's name or data.
+2. Go to **Data** and either enter months by hand or upload a CSV/Excel file.
 3. Open **Dashboard** for KPIs and charts, and **Agents** to read each agent's
-   findings. **Report** gives a printable summary.
+   findings. **Report** gives a printable summary, and **Knowledge** is a
+   searchable glossary of the business and finance terms and formulas.
 
 Everything runs in the browser. Your data is stored in this browser's local
 storage and never leaves the device unless you enable live AI.
 
-## Live AI (optional)
+## Live AI
 
-The numbers are always computed locally. To have an LLM write the agents'
-commentary instead of the built-in writer, open **Settings → Live AI
-narratives** and paste an API key (OpenAI-compatible or Anthropic). The key is
-stored only in this browser and is sent directly to the provider. With no key,
-the app still works using the built-in narrative writer.
+The numbers are always computed locally, and the agents' written commentary is
+always generated live by a free, keyless AI service — no API key is required.
+If you prefer, open **Settings → Live AI narratives** and switch to your own
+OpenAI-compatible or Anthropic key instead. If a live call ever fails, the app
+shows a retry notice rather than silently switching to the built-in writer.
 
 ## Files
 
 - `index.html` — the page
 - `styles.css` — styling
-- `js/data.js` — data model, sample templates, formatting, storage
+- `js/data.js` — data model, formatting, storage
 - `js/engine.js` — the deterministic metrics engine
 - `js/agents.js` — the seven agents and the orchestrator
-- `js/llm.js` — optional live-AI narrative layer
+- `js/llm.js` — live-AI narrative layer (free, keyless provider by default)
 - `js/charts.js` — Chart.js wrappers
 - `js/app.js` — UI controller
 

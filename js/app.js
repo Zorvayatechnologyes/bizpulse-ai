@@ -12,7 +12,7 @@
 
   /* ---------- app state ---------- */
   let state = D.emptyState();
-  let settings = { currency: 'INR', compact: true, llm: { provider: 'openai', model: '', apiKey: '', baseUrl: '' } };
+  let settings = { currency: 'INR', compact: true, llm: { provider: 'free', model: '', apiKey: '', baseUrl: '' } };
   let metrics = null;
   let agentResults = null;
   let liveNarratives = {};       // agentId -> {text, live}
@@ -93,16 +93,108 @@
   function persist() { D.save(state); D.saveSettings(settings); }
   const persistSoon = debounce(persist, 350);
 
+  /* ================= KNOWLEDGE ================= */
+  const KNOWLEDGE = [
+    { group: "Profitability", items: [
+      { t: "Revenue (turnover)", d: "The total money a business earns from selling goods or services in a period, before any costs are taken out.", f: "Sum of all sales = price x units sold" },
+      { t: "Gross profit", d: "What is left from revenue after the direct cost of producing or buying what you sold.", f: "Revenue - Cost of goods sold (COGS)" },
+      { t: "Gross margin", d: "The share of each sale that remains after direct costs. A high margin signals pricing power or low production cost.", f: "Gross profit / Revenue x 100" },
+      { t: "Operating profit (EBIT)", d: "Profit from the core business, before interest and tax are counted.", f: "Gross profit - Operating expenses" },
+      { t: "Net profit", d: "The bottom line: what remains once every cost has been paid.", f: "Revenue - all expenses" },
+      { t: "Net profit margin", d: "How much profit each unit of revenue produces. A 10% margin means 10 paise of profit per rupee of sales.", f: "Net profit / Revenue x 100" },
+      { t: "Contribution margin", d: "The money each sale contributes towards fixed costs and profit.", f: "Revenue - Variable costs" }
+    ]},
+    { group: "Costs", items: [
+      { t: "Fixed cost", d: "A cost that stays the same no matter how much you sell, such as rent or salaries.", f: "Constant within the period" },
+      { t: "Variable cost", d: "A cost that rises and falls with sales volume, such as materials or delivery.", f: "Variable cost per unit x units sold" },
+      { t: "COGS (Cost of Goods Sold)", d: "The direct cost of the goods or services you actually sold.", f: "Opening stock + purchases - closing stock" },
+      { t: "Operating expenses (OpEx)", d: "The day-to-day running costs of the business, excluding the direct cost of goods.", f: "Fixed + variable running costs" },
+      { t: "One-off cost", d: "A non-recurring expense such as new equipment or a renovation, kept out of the monthly run-rate.", f: "Recorded once, excluded from run-rate" },
+      { t: "Cost structure", d: "The mix of fixed versus variable costs. More fixed costs means more risk when sales fall.", f: "Fixed / total costs and Variable / total costs" }
+    ]},
+    { group: "Cash and liquidity", items: [
+      { t: "Cash flow", d: "The net movement of money in and out of the business over a period.", f: "Cash in - cash out" },
+      { t: "Operating cash flow", d: "Cash produced by normal trading, ignoring financing and investment.", f: "Net profit + non-cash items +/- working-capital changes" },
+      { t: "Gross burn", d: "Total monthly spending before any revenue is counted.", f: "Sum of monthly expenses" },
+      { t: "Net burn", d: "How much cash the business loses each month once revenue is offset against spending.", f: "Monthly expenses - monthly revenue (3-month average)" },
+      { t: "Runway", d: "How many months the business can keep going at its current burn rate.", f: "Cash on hand / net monthly burn" },
+      { t: "Cash on hand", d: "The money the business currently has in the bank.", f: "Closing cash balance" },
+      { t: "Working capital", d: "The short-term money available to run day-to-day operations.", f: "Current assets - current liabilities" },
+      { t: "Current ratio", d: "Whether short-term assets can cover short-term debts. Above 1.5 is usually comfortable.", f: "Current assets / current liabilities" },
+      { t: "Quick ratio (acid test)", d: "A stricter liquidity check that leaves out stock, since inventory can be slow to sell.", f: "(Current assets - inventory) / current liabilities" },
+      { t: "Liquidity", d: "How easily assets can be turned into cash to meet near-term obligations." }
+    ]},
+    { group: "Break-even", items: [
+      { t: "Break-even point (units)", d: "The sales volume at which total revenue exactly equals total costs, so profit is zero.", f: "Fixed costs / (price - variable cost per unit)" },
+      { t: "Break-even revenue", d: "The sales value needed to cover all costs.", f: "Fixed costs / contribution-margin ratio" },
+      { t: "Contribution-margin ratio", d: "The share of each rupee of sales that goes towards fixed costs and profit.", f: "(Revenue - variable costs) / revenue" },
+      { t: "Margin of safety", d: "How far sales can fall before the business hits break-even.", f: "(Actual sales - break-even sales) / actual sales x 100" }
+    ]},
+    { group: "Growth and efficiency", items: [
+      { t: "Growth rate (month on month)", d: "How fast revenue is changing from one month to the next.", f: "(This month - last month) / last month x 100" },
+      { t: "Growth rate (year on year)", d: "The same comparison across a full year, which smooths out seasonality.", f: "(This year - last year) / last year x 100" },
+      { t: "CAGR", d: "Compound annual growth rate: the smoothed yearly growth over several years.", f: "(End value / start value)^(1 / years) - 1" },
+      { t: "ARPU", d: "Average revenue per user, a quick read on how much each customer is worth.", f: "Total revenue / number of users" },
+      { t: "CAC (Customer Acquisition Cost)", d: "What it costs in sales and marketing to win one new customer.", f: "Sales and marketing spend / new customers won" },
+      { t: "LTV (Lifetime Value)", d: "The total profit a customer is expected to bring over their whole relationship with you.", f: "ARPU x gross margin / churn rate" },
+      { t: "LTV to CAC ratio", d: "Whether you are spending sensibly to win customers. Three times or more is a common target.", f: "LTV / CAC" },
+      { t: "Churn rate", d: "The share of customers who leave in a period.", f: "Customers lost / customers at start x 100" },
+      { t: "Inventory turnover", d: "How many times stock is sold and replaced in a period.", f: "COGS / average inventory" },
+      { t: "Rule of 40", d: "A quick health check for growing software businesses, balancing growth against profit.", f: "Growth rate % + profit margin % >= 40" }
+    ]},
+    { group: "Returns and valuation", items: [
+      { t: "EBITDA", d: "Earnings before interest, tax, depreciation and amortisation: a rough proxy for cash profit.", f: "Net profit + interest + tax + depreciation + amortisation" },
+      { t: "ROI", d: "Return on investment: how much you earned relative to what you put in.", f: "(Gain - cost) / cost x 100" },
+      { t: "ROE", d: "Return on equity: profit generated per unit of the owners' money.", f: "Net income / shareholders equity x 100" },
+      { t: "ROA", d: "Return on assets: profit generated per unit of assets.", f: "Net income / total assets x 100" },
+      { t: "Payback period", d: "How long an investment takes to repay its own cost.", f: "Initial investment / annual cash inflow" },
+      { t: "Revenue multiple", d: "A rule-of-thumb valuation for young companies, based on sales.", f: "Valuation / annual revenue" },
+      { t: "EBITDA multiple", d: "A common valuation measure for established, profitable businesses.", f: "Valuation / EBITDA" }
+    ]},
+    { group: "Risk and stability", items: [
+      { t: "Volatility", d: "How much a figure swings from month to month. High volatility makes planning harder.", f: "Standard deviation of the monthly series" },
+      { t: "Concentration risk", d: "The danger of depending on too few customers, products or suppliers.", f: "Top customer or product / total revenue x 100" },
+      { t: "Debt-to-equity", d: "How much the business is funded by borrowing versus owners' money.", f: "Total debt / shareholders equity" },
+      { t: "Interest coverage", d: "How comfortably profit covers interest payments. Below 1.5 is a warning sign.", f: "EBIT / interest expense" },
+      { t: "Health score", d: "This app's weighted 0 to 100 blend of profitability, liquidity, growth, cost control and stability.", f: "Weighted average of the five component scores" }
+    ]}
+  ];
+  let knowledgeQuery = "";
+
+  function kItem(it) {
+    const kids = [h("h4", {}, [it.t]), h("p", {}, [it.d])];
+    if (it.f) kids.push(h("div", { class: "k-formula" }, [h("b", {}, ["Formula - "]), it.f]));
+    return h("div", { class: "k-item" }, kids);
+  }
+
+  function renderKnowledge() {
+    const box = el("knowledgeBody");
+    if (!box) return;
+    const q = knowledgeQuery.trim().toLowerCase();
+    box.innerHTML = "";
+    let shown = 0;
+    KNOWLEDGE.forEach(g => {
+      const items = g.items.filter(it => !q || (it.t + " " + it.d + " " + (it.f || "")).toLowerCase().indexOf(q) !== -1);
+      if (!items.length) return;
+      shown += items.length;
+      box.appendChild(h("h2", { class: "k-group-title" }, [g.group]));
+      box.appendChild(h("div", { class: "knowledge-grid" }, items.map(kItem)));
+    });
+    if (!shown) box.appendChild(h("p", { class: "mt-empty" }, ["No terms match that search."]));
+    const c = el("knowledgeCount");
+    if (c) c.textContent = shown + (shown === 1 ? " term" : " terms");
+  }
+
+  function bindKnowledge() {
+    const inp = el("knowledgeSearch");
+    if (inp) inp.addEventListener("input", e => { knowledgeQuery = e.target.value; renderKnowledge(); });
+  }
+
   /* ---------- bootstrap ---------- */
   function init() {
     const params = new URLSearchParams(location.search);
-    const demoKey = params.get('demo');
-    if (demoKey && D.sampleList().some(x => x.key === demoKey)) {
-      state = D.sampleState(demoKey);
-    } else {
-      const loaded = D.load();
-      if (loaded) state = loaded;
-    }
+    const loaded = D.load();
+    if (loaded) state = loaded;
     // migrate older saved data
     if (!state.business) state.business = { name: '', currency: 'INR' };
     ['industry', 'foundedYear', 'employees'].forEach(k => { if (state.business[k] == null) state.business[k] = ''; });
@@ -122,12 +214,13 @@
     bindMeetingsView();
     bindReportView();
     bindSettingsView();
+    bindKnowledge();
     syncSettingsForm();
     updateAiBadge();
 
     recompute();
     const v = params.get('view');
-    const valid = ['dashboard', 'data', 'agents', 'meetings', 'report', 'settings'];
+    const valid = ['dashboard', 'data', 'agents', 'meetings', 'report', 'knowledge', 'settings'];
     showView(v && valid.indexOf(v) !== -1 ? v : 'dashboard');
   }
 
@@ -167,7 +260,7 @@
   function showView(name) {
     document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-nav') === name));
-    const titles = { dashboard: 'Overview', data: 'Business data', agents: 'AI agents', meetings: 'Meetings', report: 'Report', settings: 'Settings' };
+    const titles = { dashboard: 'Overview', data: 'Business data', agents: 'AI agents', meetings: 'Meetings', report: 'Report', knowledge: 'Knowledge', settings: 'Settings' };
     const tt = el('topTitle'); if (tt) tt.textContent = titles[name] || 'Overview';
     closeMenu();
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -176,6 +269,7 @@
     if (name === 'report') renderReport();
     if (name === 'data') { renderMonthList(); renderEditor(); }
     if (name === 'meetings') renderMeetings();
+    if (name === 'knowledge') renderKnowledge();
   }
 
   /* ================= DASHBOARD ================= */
@@ -338,25 +432,28 @@
     recompute(); // fresh deterministic results
     renderAgentList();
 
-    if (L.isConfigured(settings)) {
-      updateAiBadge('running');
-      const agents = agentResults.all;
-      let done = 0;
-      await Promise.all(agents.map(async a => {
-        const res = await L.narrate(a, metrics, settings);
-        if (res && res.text) {
-          liveNarratives[a.id] = res;
-          const node = el('narr-' + a.id);
-          if (node) { node.innerHTML = esc(res.text).replace(/\n/g, '<br>'); node.classList.add('live'); }
-        }
-        done++;
-      }));
-      const ok = Object.keys(liveNarratives).length;
-      toast(ok ? 'Live AI wrote ' + ok + ' of ' + agents.length + ' narratives' : 'Live AI unavailable — kept built-in narratives');
-      renderHero();
-    } else {
-      toast('Agents ran (built-in narratives). Add an API key for live AI.');
+    updateAiBadge('running');
+    const agents = agentResults.all;
+    const prov = (settings.llm && settings.llm.provider) || 'free';
+    const keyless = prov === 'free' || !(settings.llm && settings.llm.apiKey);
+    let ok = 0;
+    for (let i = 0; i < agents.length; i++) {
+      const a = agents[i];
+      const res = await L.narrate(a, metrics, settings);
+      if (res && res.text) {
+        liveNarratives[a.id] = res; ok++;
+        const node = el('narr-' + a.id);
+        if (node) { node.innerHTML = esc(res.text).replace(/\n/g, '<br>'); node.classList.add('live'); }
+      } else {
+        liveNarratives[a.id] = { text: 'Live AI could not be reached for this agent just now. Run the agents again to retry.', live: false, failed: true };
+        const node = el('narr-' + a.id);
+        if (node) { node.innerHTML = esc(liveNarratives[a.id].text); node.classList.remove('live'); }
+      }
+      /* the free keyless service allows only one request at a time */
+      if (keyless && i < agents.length - 1) await new Promise(r => setTimeout(r, 1400));
     }
+    toast(ok === agents.length ? 'Live AI wrote all ' + agents.length + ' narratives' : 'Live AI wrote ' + ok + ' of ' + agents.length + ' — run again to retry the rest');
+    renderHero();
 
     btns.forEach(b => { b.textContent = b.dataset.t || 'Run all agents'; b.disabled = false; });
     running = false;
@@ -373,15 +470,13 @@
     box.innerHTML = '';
     box.appendChild(h('div', { class: 'who' }, [agent.name + ' · ' + agent.role]));
 
-    let answer = null;
-    if (L.isConfigured(settings)) {
-      box.appendChild(h('div', { class: 'narrative' }, ['Asking live AI…']));
-      answer = await L.ask(q, agent, metrics, settings);
-    }
-    const text = (answer && answer.text) ? answer.text : fallbackAnswer(q, agent);
+    box.appendChild(h('div', { class: 'narrative' }, ['Asking live AI…']));
+    const answer = await L.ask(q, agent, metrics, settings);
+    const liveOk = !!(answer && answer.text);
+    const text = liveOk ? answer.text : 'Live AI could not be reached just now. Please try your question again.';
     box.innerHTML = '';
-    box.appendChild(h('div', { class: 'who' }, [agent.name + ' · ' + agent.role + (answer && answer.live ? ' · live AI' : '')]));
-    box.appendChild(h('div', { class: 'narrative' + (answer && answer.live ? ' live' : ''), html: esc(text).replace(/\n/g, '<br>') }));
+    box.appendChild(h('div', { class: 'who' }, [agent.name + ' · ' + agent.role + (liveOk ? ' · live AI' : '')]));
+    box.appendChild(h('div', { class: 'narrative' + (liveOk ? ' live' : ''), html: esc(text).replace(/\n/g, '<br>') }));
     const chips = h('div', { class: 'metric-chips', style: 'margin-top:12px' }, (agent.chips || []).map(c => h('span', { class: 'chip' }, [c.label + ': ', h('b', {}, [c.value])])));
     box.appendChild(chips);
   }
@@ -411,7 +506,7 @@
       const b = e.target.closest('.tab'); if (!b) return;
       document.querySelectorAll('#dataTabs .tab').forEach(t => t.classList.toggle('active', t === b));
       const name = b.getAttribute('data-tab');
-      document.querySelectorAll('#pane-manual,#pane-upload,#pane-demo').forEach(p => p.classList.toggle('active', p.id === 'pane-' + name));
+      document.querySelectorAll('#pane-manual,#pane-upload').forEach(p => p.classList.toggle('active', p.id === 'pane-' + name));
     });
 
     // profile
@@ -425,34 +520,10 @@
 
     // add month
     el('btnAddMonth').addEventListener('click', addMonth);
-    el('emptyDemo').addEventListener('click', () => loadSample('retail'));
-
-    // demo
-    renderDemoGrid();
-    el('btnClearData').addEventListener('click', clearData);
     el('btnClearData2').addEventListener('click', clearData);
 
     // upload
     bindUpload();
-  }
-
-  function renderDemoGrid() {
-    const grid = el('demoGrid'); grid.innerHTML = '';
-    D.sampleList().forEach(s => {
-      grid.appendChild(h('div', { class: 'demo-card', onclick: () => loadSample(s.key) }, [
-        h('h4', {}, [s.title]), h('p', {}, [s.blurb]),
-        h('button', { class: 'btn primary small', style: 'margin-top:10px' }, ['Load this template'])
-      ]));
-    });
-  }
-
-  function loadSample(key) {
-    state = D.sampleState(key);
-    settings.currency = state.business.currency;
-    selectedMonthId = state.months.length ? state.months[0].id : null;
-    syncDataForm(); syncSettingsForm(); recompute(); renderMonthList(); renderEditor();
-    showView('dashboard');
-    toast('Loaded sample template');
   }
 
   function clearData() {
@@ -775,7 +846,7 @@
   function bindSettingsView() {
     el('setCurrency').addEventListener('change', e => { settings.currency = e.target.value; state.business.currency = e.target.value; el('inpCurrency').value = e.target.value; recompute(); });
     el('setCompact').addEventListener('change', e => { settings.compact = e.target.value === 'compact'; recompute(); });
-    el('setProvider').addEventListener('change', e => { settings.llm.provider = e.target.value; toggleBaseUrl(); });
+    el('setProvider').addEventListener('change', e => { settings.llm.provider = e.target.value; toggleLlmRows(); });
     el('setModel').addEventListener('input', e => { settings.llm.model = e.target.value; });
     el('setApiKey').addEventListener('input', e => { settings.llm.apiKey = e.target.value; updateAiBadge(); });
     el('setBaseUrl').addEventListener('input', e => { settings.llm.baseUrl = e.target.value; });
@@ -787,18 +858,20 @@
     el('jsonInput').addEventListener('change', importJson);
   }
 
-  function toggleBaseUrl() {
-    el('baseUrlRow').classList.toggle('hidden', el('setProvider').value !== 'openai');
+  function toggleLlmRows() {
+    const p = el('setProvider').value;
+    if (el('apiKeyRow')) el('apiKeyRow').classList.toggle('hidden', p === 'free');
+    el('baseUrlRow').classList.toggle('hidden', p !== 'openai');
   }
 
   function syncSettingsForm() {
     el('setCurrency').value = settings.currency;
     el('setCompact').value = settings.compact ? 'compact' : 'full';
-    el('setProvider').value = settings.llm.provider || 'openai';
+    el('setProvider').value = settings.llm.provider || 'free';
     el('setModel').value = settings.llm.model || '';
     el('setApiKey').value = settings.llm.apiKey || '';
     el('setBaseUrl').value = settings.llm.baseUrl || '';
-    toggleBaseUrl();
+    toggleLlmRows();
   }
 
   function setStatus(msg, kind) {
@@ -819,10 +892,12 @@
     const badge = el('aiBadge'), txt = el('aiBadgeText');
     const configured = L.isConfigured(settings);
     if (mode === 'running') { badge.classList.add('live'); txt.textContent = 'Live AI running…'; return; }
+    const prov = (settings.llm && settings.llm.provider) || 'free';
+    const label = prov === 'anthropic' ? 'Anthropic' : prov === 'openai' ? 'OpenAI' : 'Free';
     badge.classList.toggle('live', configured);
-    txt.textContent = configured ? 'Live LLM · ' + (settings.llm.provider === 'anthropic' ? 'Anthropic' : 'OpenAI') : 'Built-in mode';
+    txt.textContent = configured ? 'Live AI · ' + label : 'Built-in mode';
     const st = el('sideTipText');
-    if (st) st.textContent = configured ? 'Live AI is on — the agents write their commentary with your LLM.' : 'Numbers are computed locally. Add a key for LLM-written commentary.';
+    if (st) st.textContent = configured ? 'Live AI is on — the agents write their own commentary, no API key needed.' : 'Numbers are computed locally. Live AI is unavailable right now.';
   }
 
   function exportJson() {

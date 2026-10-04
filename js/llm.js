@@ -1,21 +1,25 @@
 /* ============================================================
    BizPulse AI — LLM narrative layer (hybrid)
-   The numbers are always computed locally. When the user supplies
-   an API key, this module asks an LLM to write the narrative;
-   otherwise the caller keeps the built-in narrative. Every call is
-   wrapped so a failure never breaks the app.
+   The numbers are always computed locally. By default this module
+   asks a free, keyless LLM service (Pollinations) to write the
+   narrative; the user may instead supply an OpenAI or Anthropic key.
+   If a call fails, the caller keeps the built-in narrative. Every
+   call is wrapped so a failure never breaks the app.
    Exposes: window.BPLLM
    ============================================================ */
 (function () {
   const DEFAULTS = {
+    free: { model: 'openai', baseUrl: 'https://text.pollinations.ai/openai' },
     openai: { model: 'gpt-4o-mini', baseUrl: 'https://api.openai.com/v1' },
     anthropic: { model: 'claude-3-5-haiku-latest', baseUrl: 'https://api.anthropic.com/v1' }
   };
+  /* Providers that need no API key at all. */
+  const KEYLESS = { free: true };
 
   function cfg(settings) {
     const s = (settings && settings.llm) || {};
-    const provider = s.provider || 'openai';
-    const def = DEFAULTS[provider] || DEFAULTS.openai;
+    const provider = s.provider || 'free';
+    const def = DEFAULTS[provider] || DEFAULTS.free;
     return {
       provider,
       apiKey: (s.apiKey || '').trim(),
@@ -25,7 +29,7 @@
   }
   function isConfigured(settings) {
     const c = cfg(settings);
-    return !!c.apiKey;
+    return !!KEYLESS[c.provider] || !!c.apiKey;
   }
 
   function composePrompt(agent, m) {
@@ -43,7 +47,10 @@
     return { system, user };
   }
 
-  async function callLLM(c, system, user, maxTokens) {
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  /* One network attempt. */
+  async function callOnce(c, system, user, maxTokens) {
     if (c.provider === 'anthropic') {
       const res = await fetch(c.baseUrl.replace(/\/$/, '') + '/messages', {
         method: 'POST',
@@ -60,7 +67,21 @@
       const block = (data.content || []).find(b => b.type === 'text');
       return block ? block.text.trim() : '';
     }
-    // OpenAI-compatible
+    if (KEYLESS[c.provider]) {
+      /* Free, keyless OpenAI-compatible endpoint — no Authorization header. */
+      const res = await fetch(c.baseUrl, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: c.model, max_tokens: maxTokens || 400, temperature: 0.4,
+          messages: [{ role: 'system', content: system }, { role: 'user', content: user }]
+        })
+      });
+      if (!res.ok) throw new Error('Free AI ' + res.status + ': ' + (await res.text()).slice(0, 180));
+      const data = await res.json();
+      return ((data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '').trim();
+    }
+    /* OpenAI-compatible with a user-supplied key. */
     const res = await fetch(c.baseUrl.replace(/\/$/, '') + '/chat/completions', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'authorization': 'Bearer ' + c.apiKey },
@@ -74,10 +95,27 @@
     return ((data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '').trim();
   }
 
+  /* Wrapper with retries — the free service rate-limits bursts. */
+  async function callLLM(c, system, user, maxTokens) {
+    const tries = KEYLESS[c.provider] ? 6 : 1;
+    let last;
+    for (let i = 0; i < tries; i++) {
+      try { return await callOnce(c, system, user, maxTokens); }
+      catch (e) {
+        last = e;
+        const msg = String((e && e.message) || e);
+        const retriable = /40[29]|50\d|failed to fetch|networkerror|load failed|timeout|budget/i.test(msg);
+        if (i === tries - 1 || !retriable) throw e;
+        await sleep(1500 * (i + 1));
+      }
+    }
+    throw last;
+  }
+
   /* narrative for one agent; returns {text, live} or null on failure */
   async function narrate(agent, m, settings) {
     const c = cfg(settings);
-    if (!c.apiKey) return null;
+    if (!KEYLESS[c.provider] && !c.apiKey) return null;
     try {
       const p = composePrompt(agent, m);
       const text = await callLLM(c, p.system, p.user, 400);
@@ -92,7 +130,7 @@
   async function ask(question, agent, m, settings) {
     const c = cfg(settings);
     const facts = Object.keys(agent.facts || {}).map(k => '- ' + k.replace(/_/g, ' ') + ': ' + agent.facts[k]).join('\n');
-    if (!c.apiKey) return null;
+    if (!KEYLESS[c.provider] && !c.apiKey) return null;
     try {
       const system = 'You are the ' + agent.name + ' (' + agent.role + ') advising a business owner. Answer their question in 2 to 4 sentences using ONLY the figures provided. If the figures do not cover the question, say so plainly and suggest what data would help.';
       const user = 'Business: ' + (m.businessName || 'the business') + '. Currency ' + (m.currency || 'INR') + '.\n\nFigures:\n' + facts + '\n\nQuestion: ' + question;
@@ -105,10 +143,10 @@
 
   async function test(settings) {
     const c = cfg(settings);
-    if (!c.apiKey) return { ok: false, message: 'No API key set.' };
+    if (!KEYLESS[c.provider] && !c.apiKey) return { ok: false, message: 'No API key set.' };
     try {
       const text = await callLLM(c, 'You are a helpful assistant.', 'Reply with the single word: ready', 10);
-      return { ok: true, message: 'Key works — model "' + c.model + '" replied: ' + (text || '(empty)') };
+      return { ok: true, message: 'Connected — model "' + c.model + '" replied: ' + (text || '(empty)') };
     } catch (e) {
       return { ok: false, message: String(e.message || e) };
     }
