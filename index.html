@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BizPulse AI — Multi-Agent Business Analyst</title>
+<meta name="description" content="BizPulse AI analyses your business across profit rate, burn rate, cash flow, growth and risk using a team of specialist AI agents." />
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ================= HEADER ================= -->
+<header class="topbar">
+  <div class="brand" data-nav="dashboard" role="button" tabindex="0">
+    <span class="brand-mark">BP</span>
+    <span class="brand-text">
+      <strong>BizPulse<span class="accent">AI</span></strong>
+      <small>Multi-agent business analyst</small>
+    </span>
+  </div>
+
+  <nav class="nav" id="mainNav">
+    <button class="nav-btn active" data-nav="dashboard">Dashboard</button>
+    <button class="nav-btn" data-nav="data">Data</button>
+    <button class="nav-btn" data-nav="agents">Agents</button>
+    <button class="nav-btn" data-nav="report">Report</button>
+    <button class="nav-btn" data-nav="settings">Settings</button>
+  </nav>
+
+  <div class="topbar-right">
+    <span class="ai-badge" id="aiBadge" title="Narrative engine status">
+      <span class="dot"></span><span id="aiBadgeText">Built-in mode</span>
+    </span>
+  </div>
+</header>
+
+<main id="app">
+
+  <!-- ================= DASHBOARD ================= -->
+  <section class="view active" id="view-dashboard">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-inner">
+        <h1>Welcome to BizPulse AI</h1>
+        <p>Your AI finance team is ready. Load a sample business to see it in action, or add your own numbers.</p>
+        <div class="empty-actions">
+          <button class="btn primary" id="emptyDemo">Load sample business</button>
+          <button class="btn ghost" data-nav="data">Enter my data</button>
+        </div>
+        <p class="tiny">Everything runs in your browser. Your data never leaves this device unless you enable live AI.</p>
+      </div>
+    </div>
+
+    <div id="dashContent" class="hidden">
+      <div class="page-head">
+        <div>
+          <h1 id="dashTitle">Business overview</h1>
+          <p class="sub" id="dashSubtitle">Latest 12 months</p>
+        </div>
+        <div class="page-actions">
+          <button class="btn ghost" id="btnRunAgents">Run all agents</button>
+          <button class="btn primary" data-nav="report">View report</button>
+        </div>
+      </div>
+
+      <div class="kpi-strip" id="kpiStrip"></div>
+
+      <div class="hero" id="orchestratorPanel"></div>
+
+      <div class="grid-2">
+        <div class="card chart-card">
+          <div class="card-head"><h3>Revenue vs expenses</h3><span class="hint" id="chartHintRev"></span></div>
+          <div class="chart-wrap"><canvas id="chartRevExp"></canvas></div>
+        </div>
+        <div class="card chart-card">
+          <div class="card-head"><h3>Net profit &amp; margin</h3><span class="hint">margin on right axis</span></div>
+          <div class="chart-wrap"><canvas id="chartProfit"></canvas></div>
+        </div>
+        <div class="card chart-card">
+          <div class="card-head"><h3>Cash flow &amp; cash position</h3><span class="hint">in / out / running balance</span></div>
+          <div class="chart-wrap"><canvas id="chartCash"></canvas></div>
+        </div>
+        <div class="card chart-card">
+          <div class="card-head"><h3>Burn trend &amp; runway</h3><span class="hint" id="chartHintBurn"></span></div>
+          <div class="chart-wrap"><canvas id="chartBurn"></canvas></div>
+        </div>
+        <div class="card chart-card">
+          <div class="card-head"><h3>Expense breakdown</h3><span class="hint">by category</span></div>
+          <div class="chart-wrap small"><canvas id="chartExpenseMix"></canvas></div>
+        </div>
+        <div class="card chart-card">
+          <div class="card-head"><h3>Revenue mix</h3><span class="hint">by stream</span></div>
+          <div class="chart-wrap small"><canvas id="chartRevenueMix"></canvas></div>
+        </div>
+      </div>
+
+      <h2 class="section-title">Agent team — top findings</h2>
+      <div class="agent-grid" id="agentGridPreview"></div>
+    </div>
+  </section>
+
+  <!-- ================= DATA ================= -->
+  <section class="view" id="view-data">
+    <div class="page-head">
+      <div>
+        <h1>Business data</h1>
+        <p class="sub">Add your numbers by hand, upload a spreadsheet, or explore with a sample business.</p>
+      </div>
+    </div>
+
+    <div class="tabs" id="dataTabs">
+      <button class="tab active" data-tab="manual">Manual entry</button>
+      <button class="tab" data-tab="upload">CSV / Excel upload</button>
+      <button class="tab" data-tab="demo">Demo data</button>
+    </div>
+
+    <!-- MANUAL -->
+    <div class="tabpane active" id="pane-manual">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><h3>Business profile</h3></div>
+          <div class="form-row">
+            <label>Business name<input type="text" id="inpBizName" placeholder="e.g. Nimbus Retail Pvt Ltd" /></label>
+          </div>
+          <div class="form-row two">
+            <label>Currency
+              <select id="inpCurrency">
+                <option value="INR">₹ Indian Rupee</option>
+                <option value="USD">$ US Dollar</option>
+                <option value="EUR">€ Euro</option>
+                <option value="GBP">£ Pound</option>
+              </select>
+            </label>
+            <label>Cash on hand<input type="number" id="inpCash" placeholder="2500000" min="0" step="any" /></label>
+          </div>
+          <p class="tiny">Cash on hand is the money in the bank today. It is used to compute runway.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h3>Add a month</h3></div>
+          <div class="form-row two">
+            <label>Month<input type="month" id="inpMonthLabel" /></label>
+            <button class="btn primary" id="btnAddMonth" style="align-self:end">Add month</button>
+          </div>
+          <div id="monthList" class="month-list"></div>
+        </div>
+      </div>
+
+      <div class="card" id="editorCard">
+        <div class="card-head">
+          <h3 id="editorTitle">Line items</h3>
+          <span class="hint" id="editorHint">Select a month above to edit its revenue and expenses.</span>
+        </div>
+        <div class="editor-grid" id="editorBody">
+          <p class="muted">No month selected.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- UPLOAD -->
+    <div class="tabpane" id="pane-upload">
+      <div class="card">
+        <div class="card-head"><h3>Upload financials</h3><span class="hint">.csv, .xlsx or .xls</span></div>
+        <div class="dropzone" id="dropzone">
+          <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" hidden />
+          <div class="dz-inner">
+            <strong>Drop your file here</strong>
+            <span>or <button class="link" id="browseBtn" type="button">browse</button> to choose</span>
+            <span class="tiny">Accepted: one row per month, or one row per line item. You'll map the columns next.</span>
+          </div>
+        </div>
+        <div id="uploadStatus" class="upload-status hidden"></div>
+      </div>
+
+      <div class="card hidden" id="mappingCard">
+        <div class="card-head"><h3>Confirm column mapping</h3><span class="hint" id="mapRowCount"></span></div>
+        <div class="mapping-grid" id="mappingGrid"></div>
+        <div class="preview-wrap"><table id="mapPreview"></table></div>
+        <div class="row-actions">
+          <button class="btn primary" id="btnImport">Import data</button>
+          <button class="btn ghost" id="btnCancelMap">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEMO -->
+    <div class="tabpane" id="pane-demo">
+      <div class="card">
+        <div class="card-head"><h3>Sample businesses</h3></div>
+        <p class="muted">Load a realistic 12-month dataset to explore every agent and chart. This replaces your current data.</p>
+        <div class="demo-grid" id="demoGrid"></div>
+        <div class="row-actions">
+          <button class="btn danger ghost" id="btnClearData">Clear all data</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= AGENTS ================= -->
+  <section class="view" id="view-agents">
+    <div class="page-head">
+      <div>
+        <h1>Your AI agent team</h1>
+        <p class="sub">Each agent analyses one slice of the business, then the CFO orchestrator pulls it together.</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn primary" id="btnRunAgents2">Run all agents</button>
+      </div>
+    </div>
+
+    <div class="card ask-card">
+      <div class="card-head"><h3>Ask an agent</h3><span class="hint">answers use your computed numbers</span></div>
+      <div class="ask-row">
+        <input type="text" id="askInput" placeholder="e.g. How many months of runway do I have? Where can I cut costs?" />
+        <button class="btn primary" id="askBtn">Ask</button>
+      </div>
+      <div class="ask-suggest" id="askSuggest"></div>
+      <div id="askAnswer" class="ask-answer hidden"></div>
+    </div>
+
+    <div class="agent-list" id="agentList"></div>
+  </section>
+
+  <!-- ================= REPORT ================= -->
+  <section class="view" id="view-report">
+    <div class="page-head no-print">
+      <div>
+        <h1>Business health report</h1>
+        <p class="sub" id="reportSubtitle"></p>
+      </div>
+      <div class="page-actions">
+        <button class="btn ghost" id="btnPrint">Print / Save as PDF</button>
+        <button class="btn primary" id="btnCopyReport">Copy summary</button>
+      </div>
+    </div>
+    <div class="report" id="reportBody"></div>
+  </section>
+
+  <!-- ================= SETTINGS ================= -->
+  <section class="view" id="view-settings">
+    <div class="page-head"><div><h1>Settings</h1><p class="sub">Preferences and the optional live-AI key.</p></div></div>
+
+    <div class="card">
+      <div class="card-head"><h3>Display</h3></div>
+      <div class="form-row two">
+        <label>Currency
+          <select id="setCurrency">
+            <option value="INR">₹ Indian Rupee</option>
+            <option value="USD">$ US Dollar</option>
+            <option value="EUR">€ Euro</option>
+            <option value="GBP">£ Pound</option>
+          </select>
+        </label>
+        <label>Number style
+          <select id="setCompact">
+            <option value="compact">Compact (₹1.2L / ₹3.4Cr)</option>
+            <option value="full">Full (₹1,23,456)</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h3>Live AI narratives</h3>
+        <span class="hint">optional</span>
+      </div>
+      <p class="muted">
+        The numbers are always computed by BizPulse itself. When you add a key, each agent's written
+        commentary is generated live by an LLM instead of the built-in writer. Your key is stored only in
+        this browser and is sent directly to the provider you choose.
+      </p>
+      <div class="form-row two">
+        <label>Provider
+          <select id="setProvider">
+            <option value="openai">OpenAI (or compatible)</option>
+            <option value="anthropic">Anthropic</option>
+          </select>
+        </label>
+        <label>Model<input type="text" id="setModel" placeholder="gpt-4o-mini" /></label>
+      </div>
+      <div class="form-row">
+        <label>API key<input type="password" id="setApiKey" placeholder="paste key — stored locally only" autocomplete="off" /></label>
+      </div>
+      <div class="form-row hidden" id="baseUrlRow">
+        <label>Base URL (OpenAI-compatible)<input type="text" id="setBaseUrl" placeholder="https://api.openai.com/v1" /></label>
+      </div>
+      <div class="row-actions">
+        <button class="btn primary" id="btnSaveSettings">Save settings</button>
+        <button class="btn ghost" id="btnTestKey">Test key</button>
+        <button class="btn danger ghost" id="btnClearKey">Remove key</button>
+      </div>
+      <div id="settingsStatus" class="upload-status hidden"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h3>How it works</h3></div>
+      <div class="explain">
+        <p><strong>The metrics engine.</strong> Every figure — profit rate, margins, burn rate, runway, cash flow,
+        break-even — is computed from your data with standard formulas. Each metric shows its formula, so you can
+        check the maths.</p>
+        <p><strong>The agents.</strong> Seven specialists each read the same engine output but focus on one area.
+        They flag what is good, what to watch and what is critical, then give concrete recommendations.</p>
+        <p><strong>The orchestrator.</strong> The lead CFO agent reads every specialist's findings, resolves
+        conflicts and produces one prioritised action list plus an overall health score.</p>
+        <p><strong>Hybrid AI.</strong> Logic computes the numbers; the LLM (when enabled) writes the narrative. With
+        no key, a built-in writer composes the commentary from the same numbers — so nothing ever breaks.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h3>Data</h3></div>
+      <div class="row-actions">
+        <button class="btn ghost" id="btnExportJson">Export data (JSON)</button>
+        <button class="btn ghost" id="btnImportJson">Import data (JSON)</button>
+        <input type="file" id="jsonInput" accept=".json" hidden />
+        <button class="btn danger ghost" id="btnClearData2">Clear all data</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer no-print">
+  <span>BizPulse AI — a demonstration business-analysis tool. Figures are estimates from the data you enter and are not financial advice.</span>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="js/data.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/agents.js"></script>
+<script src="js/llm.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
