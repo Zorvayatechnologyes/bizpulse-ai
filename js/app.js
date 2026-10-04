@@ -19,6 +19,7 @@
   let selectedMonthId = null;
   let lastMapping = null;
   let running = false;
+  let reportMeeting = null;
 
   /* ---------- tiny helpers ---------- */
   function el(id) { return document.getElementById(id); }
@@ -102,6 +103,11 @@
       const loaded = D.load();
       if (loaded) state = loaded;
     }
+    // migrate older saved data
+    if (!state.business) state.business = { name: '', currency: 'INR' };
+    ['industry', 'foundedYear', 'employees'].forEach(k => { if (state.business[k] == null) state.business[k] = ''; });
+    if (state.business.target == null) state.business.target = 0;
+    if (!Array.isArray(state.meetings)) state.meetings = [];
     const s = D.loadSettings();
     if (s) settings = Object.assign(settings, s, { llm: Object.assign(settings.llm, s.llm || {}) });
     if (state.business.currency) settings.currency = state.business.currency;
@@ -113,6 +119,7 @@
     bindNav();
     bindDataView();
     bindAgentsView();
+    bindMeetingsView();
     bindReportView();
     bindSettingsView();
     syncSettingsForm();
@@ -120,7 +127,7 @@
 
     recompute();
     const v = params.get('view');
-    const valid = ['dashboard', 'data', 'agents', 'report', 'settings'];
+    const valid = ['dashboard', 'data', 'agents', 'meetings', 'report', 'settings'];
     showView(v && valid.indexOf(v) !== -1 ? v : 'dashboard');
   }
 
@@ -145,11 +152,12 @@
   /* ================= NAV ================= */
   function bindNav() {
     document.querySelectorAll('[data-nav]').forEach(b => {
-      b.addEventListener('click', () => showView(b.getAttribute('data-nav')));
+      b.addEventListener('click', () => { const n = b.getAttribute('data-nav'); if (n === 'report') reportMeeting = null; showView(n); });
     });
     el('mainNav').addEventListener('click', e => {
       const b = e.target.closest('.nav-btn'); if (!b) return;
-      showView(b.getAttribute('data-nav'));
+      const n = b.getAttribute('data-nav'); if (n === 'report') reportMeeting = null;
+      showView(n);
     });
     const mb = el('menuBtn');
     if (mb) mb.addEventListener('click', () => toggleMenu());
@@ -159,7 +167,7 @@
   function showView(name) {
     document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-nav') === name));
-    const titles = { dashboard: 'Overview', data: 'Business data', agents: 'AI agents', report: 'Report', settings: 'Settings' };
+    const titles = { dashboard: 'Overview', data: 'Business data', agents: 'AI agents', meetings: 'Meetings', report: 'Report', settings: 'Settings' };
     const tt = el('topTitle'); if (tt) tt.textContent = titles[name] || 'Overview';
     closeMenu();
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -167,6 +175,7 @@
     if (name === 'agents' && agentResults && agentResults.specialists.length) renderAgentList();
     if (name === 'report') renderReport();
     if (name === 'data') { renderMonthList(); renderEditor(); }
+    if (name === 'meetings') renderMeetings();
   }
 
   /* ================= DASHBOARD ================= */
@@ -391,7 +400,7 @@
 
   function fallbackAnswer(q, a) {
     const lead = 'Here is what I can tell you from the figures (' + a.name + '):\n';
-    const chips = (a.chips || []).map(c => '• ' + c.label + ': ' + c.value).join('\n');
+    const chips = (a.chips || []).map(c => '• ' + c.label + ': ' + c.value).join(String.fromCharCode(10));
     return lead + a.narrative + '\n\nKey numbers:\n' + chips;
   }
 
@@ -407,6 +416,10 @@
 
     // profile
     el('inpBizName').addEventListener('input', e => { state.business.name = e.target.value; persistSoon(); renderKPIs(); });
+    el('inpIndustry').addEventListener('change', e => { state.business.industry = e.target.value; persistSoon(); renderReport(); });
+    el('inpFounded').addEventListener('input', e => { state.business.foundedYear = e.target.value; persistSoon(); });
+    el('inpEmployees').addEventListener('input', e => { state.business.employees = e.target.value; persistSoon(); });
+    el('inpTarget').addEventListener('input', e => { state.business.target = D.num(e.target.value); persistSoon(); renderReport(); });
     el('inpCurrency').addEventListener('change', e => { state.business.currency = e.target.value; settings.currency = e.target.value; syncSettingsForm(); recompute(); });
     el('inpCash').addEventListener('input', e => { state.cashOnHand = D.num(e.target.value); recompute(); });
 
@@ -485,6 +498,10 @@
 
   function syncDataForm() {
     el('inpBizName').value = state.business.name || '';
+    el('inpIndustry').value = state.business.industry || '';
+    el('inpFounded').value = state.business.foundedYear || '';
+    el('inpEmployees').value = state.business.employees || '';
+    el('inpTarget').value = state.business.target || '';
     el('inpCurrency').value = state.business.currency || 'INR';
     el('inpCash').value = state.cashOnHand || '';
   }
@@ -698,8 +715,10 @@
 
   function renderReport() {
     const body = el('reportBody'); if (!body) return;
+    if (reportMeeting) { renderBrief(); return; }
     if (!metrics || metrics.empty) { body.innerHTML = '<p class="muted">Add data to generate a report.</p>'; return; }
     const m = metrics;
+    const rh = el('reportHeading'); if (rh) rh.textContent = 'Business health report';
     el('reportSubtitle').textContent = (state.business.name || 'Business') + ' · ' + m.n + ' months · generated ' + new Date().toLocaleDateString('en-IN');
     const kpis = [
       ['Revenue / month', money(m.avg.revenue)],
@@ -830,6 +849,186 @@
       } catch (err) { toast('Could not read that file'); }
     };
     r.readAsText(f);
+  }
+
+  /* ================= MEETINGS ================= */
+  function bindMeetingsView() {
+    el('mtAdd').addEventListener('click', addMeeting);
+    el('mtFillAgenda').addEventListener('click', fillAgenda);
+    const d = el('mtDate');
+    if (d && !d.value) d.value = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  }
+
+  function setMtStatus(msg, kind) {
+    const s = el('mtStatus'); s.classList.remove('hidden', 'ok', 'err');
+    if (kind) s.classList.add(kind);
+    s.textContent = msg;
+  }
+
+  function fmtTime(t) {
+    if (!t) return '';
+    const parts = String(t).split(':');
+    const H = Number(parts[0]), M = Number(parts[1] || 0);
+    if (!isFinite(H)) return t;
+    const ap = H >= 12 ? 'PM' : 'AM';
+    return (((H + 11) % 12) + 1) + ':' + String(M).padStart(2, '0') + ' ' + ap;
+  }
+
+  function meetingSuggestions() {
+    const out = [];
+    if (agentResults && agentResults.orchestrator) {
+      agentResults.orchestrator.priorities.forEach(p => out.push({ agent: p.agent, text: p.text, severity: agentResults.orchestrator.severity }));
+    }
+    if (metrics && !metrics.empty) {
+      const g = metrics.growth;
+      if (g.cagr != null) out.push({ agent: 'Revenue Growth Analyst', severity: g.cagr < 0.1 ? 'watch' : 'good', text: 'Review growth: revenue is moving at ' + pct(g.cagr) + ' a year, with the latest month at ' + money(g.lastRevenue) + '.' });
+      if (metrics.burn.profitable) out.push({ agent: 'Burn & Runway Analyst', severity: 'good', text: 'Cash flow is positive, so the discussion can focus on growth rather than survival.' });
+      else out.push({ agent: 'Burn & Runway Analyst', severity: 'watch', text: 'Cash runway is ' + D.formatMonths(metrics.burn.runwayMonths) + ' — agree the plan to extend it.' });
+    }
+    return out.slice(0, 5);
+  }
+
+  function renderMeetings() {
+    const box = el('mtSuggest'); box.innerHTML = '';
+    const sug = meetingSuggestions();
+    el('mtSuggestHint').textContent = sug.length ? sug.length + ' suggestions' : '';
+    if (!sug.length) {
+      box.appendChild(h('p', { class: 'muted' }, ['Add your business data and run the agents — their priorities will show up here as agenda suggestions.']));
+    } else {
+      sug.forEach(s => box.appendChild(h('div', { class: 'sug' }, [
+        h('span', { class: 'sev-pill ' + (s.severity || 'info') }, [s.severity || 'info']),
+        h('div', { class: 'sug-text' }, [s.text, h('span', { class: 'sug-agent' }, [s.agent])])
+      ])));
+    }
+    renderMeetingList();
+  }
+
+  function renderMeetingList() {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const list = (state.meetings || []).slice().sort((a, b) => ((a.date || '') + (a.time || '')) < ((b.date || '') + (b.time || '')) ? -1 : 1);
+    const upcoming = list.filter(m => new Date(m.date + 'T' + (m.time || '00:00')) >= today);
+    const past = list.filter(m => new Date(m.date + 'T' + (m.time || '00:00')) < today).reverse();
+    fillMeetingList(el('mtUpcoming'), upcoming, 'No meetings scheduled yet — add one above.', false);
+    fillMeetingList(el('mtPast'), past, 'No past meetings yet.', true);
+  }
+
+  function fillMeetingList(container, items, emptyText, isPast) {
+    container.innerHTML = '';
+    if (!items.length) { container.appendChild(h('div', { class: 'mt-empty' }, [emptyText])); return; }
+    items.forEach(m => container.appendChild(meetingCard(m, isPast)));
+  }
+
+  function meetingCard(m, isPast) {
+    const dt = new Date(m.date + 'T' + (m.time || '00:00'));
+    const valid = !isNaN(dt.getTime());
+    const meta = [m.time ? fmtTime(m.time) : '', m.duration ? m.duration + ' min' : '', m.mode || ''].filter(Boolean).join(' · ');
+    const kids = [
+      h('div', { class: 'mt-title' }, [m.title || 'Untitled meeting']),
+      h('div', { class: 'mt-meta' }, [(valid ? dt.toDateString() : m.date || '') + (meta ? ' · ' + meta : '')]),
+      m.attendees ? h('div', { class: 'mt-meta' }, ['With: ' + m.attendees]) : null,
+      m.agenda ? h('div', { class: 'mt-agenda' }, [m.agenda]) : null,
+      h('div', { class: 'mt-actions' }, [
+        h('button', { class: 'btn primary small', onclick: () => openBrief(m.id) }, ['Meeting brief']),
+        h('button', { class: 'btn ghost small', onclick: () => duplicateMeeting(m.id) }, ['Duplicate']),
+        h('button', { class: 'btn danger ghost small', onclick: () => deleteMeeting(m.id) }, ['Delete'])
+      ])
+    ].filter(Boolean);
+    return h('div', { class: 'meeting-card' }, [
+      h('div', { class: 'mt-date' + (isPast ? ' past' : '') }, [
+        h('span', { class: 'd' }, [valid ? String(dt.getDate()) : '--']),
+        h('span', { class: 'm' }, [valid ? D.MONTH_NAMES[dt.getMonth()] : ''])
+      ]),
+      h('div', { class: 'mt-main' }, kids)
+    ]);
+  }
+
+  function addMeeting() {
+    const title = (el('mtTitle').value || '').trim();
+    const date = el('mtDate').value;
+    if (!title) { setMtStatus('Give the meeting a title.', 'err'); return; }
+    if (!date) { setMtStatus('Pick a date for the meeting.', 'err'); return; }
+    const m = {
+      id: D.uid('mt'), title, date,
+      time: el('mtTime').value || '10:00',
+      duration: D.num(el('mtDuration').value) || 60,
+      mode: el('mtMode').value,
+      attendees: (el('mtAttendees').value || '').trim(),
+      agenda: (el('mtAgenda').value || '').trim(),
+      created: Date.now()
+    };
+    state.meetings.push(m);
+    persist();
+    ['mtTitle', 'mtAttendees', 'mtAgenda'].forEach(id => { el(id).value = ''; });
+    const dt = new Date(date + 'T' + m.time);
+    setMtStatus('Scheduled: ' + title + ' on ' + (isNaN(dt) ? date : dt.toDateString()) + '.', 'ok');
+    renderMeetingList();
+    toast('Meeting scheduled');
+  }
+
+  function fillAgenda() {
+    const sug = meetingSuggestions();
+    if (!sug.length) { setMtStatus('Run the agents first, then I can suggest an agenda.', 'err'); return; }
+    el('mtAgenda').value = sug.map(s => '• ' + s.text).join(String.fromCharCode(10));
+    if (!el('mtTitle').value) el('mtTitle').value = 'Business review';
+    setMtStatus('Agenda filled from your agents — edit it before scheduling if you like.', 'ok');
+  }
+
+  function deleteMeeting(id) {
+    state.meetings = state.meetings.filter(m => m.id !== id);
+    persist(); renderMeetingList(); toast('Meeting removed');
+  }
+
+  function duplicateMeeting(id) {
+    const m = (state.meetings || []).find(x => x.id === id); if (!m) return;
+    const copy = Object.assign({}, m, { id: D.uid('mt'), title: m.title + ' (copy)', created: Date.now() });
+    state.meetings.push(copy);
+    persist(); renderMeetingList(); toast('Meeting duplicated');
+  }
+
+  function openBrief(id) {
+    reportMeeting = (state.meetings || []).find(m => m.id === id) || null;
+    if (!reportMeeting) return;
+    showView('report');
+  }
+
+  function briefItem(label, value) {
+    return '<div class="brief-item"><div class="l">' + esc(label) + '</div><div class="v">' + esc(value) + '</div></div>';
+  }
+
+  function renderBrief() {
+    const m = reportMeeting;
+    const dt = new Date(m.date + 'T' + (m.time || '00:00'));
+    const when = isNaN(dt.getTime()) ? (m.date || '') : dt.toDateString();
+    el('reportSubtitle').textContent = 'Meeting brief · ' + (state.business.name || 'Business');
+    const rh = el('reportHeading'); if (rh) rh.textContent = 'Meeting brief';
+    const sug = meetingSuggestions();
+    const mm = metrics;
+    let html = '<div class="brief-back no-print"><button class="btn ghost small" data-back-report="1">← Back to full business report</button></div>';
+    html += '<div class="brief-head"><div><h1>' + esc(m.title || 'Meeting brief') + '</h1>';
+    html += '<div class="rep-meta">' + esc(state.business.name || 'Business') + (state.business.industry ? ' · ' + esc(state.business.industry) : '') + '</div></div>';
+    html += '<div><div class="brief-item"><div class="l">When</div><div class="v">' + esc(when) + '</div></div></div></div>';
+    html += '<div class="brief-grid">' + briefItem('Time', fmtTime(m.time) || '—') + briefItem('Duration', (m.duration || 60) + ' minutes') + briefItem('Mode', m.mode || '—') + briefItem('Attendees', m.attendees || '—') + '</div>';
+    if (m.agenda) html += '<h2>Agenda</h2><div class="mt-agenda">' + esc(m.agenda) + '</div>';
+    if (sug.length) html += '<h2>Suggested discussion points</h2><ol class="agenda-list">' + sug.map(s => '<li>' + esc(s.text) + ' <span class="tiny">— ' + esc(s.agent) + '</span></li>').join('') + '</ol>';
+    if (mm && !mm.empty) {
+      html += '<h2>Where the business stands</h2><div class="brief-grid">';
+      html += briefItem('Revenue / month', money(mm.avg.revenue));
+      html += briefItem('Net profit rate', pct(mm.avg.netMargin));
+      html += briefItem('Growth (annualised)', mm.growth.cagr == null ? 'n/a' : pct(mm.growth.cagr));
+      html += briefItem('Net burn / month', mm.burn.profitable ? 'Positive' : money(mm.burn.netBurn));
+      html += briefItem('Runway', mm.burn.profitable ? 'Unlimited' : D.formatMonths(mm.burn.runwayMonths));
+      html += briefItem('Cash on hand', money(mm.cash.cashOnHand));
+      html += briefItem('Health score', mm.health.score + '/100 (' + mm.health.grade + ')');
+      if (state.business.target) html += briefItem('Latest vs target', money(mm.growth.lastRevenue) + ' of ' + money(state.business.target));
+      html += '</div>';
+      html += '<h2>Executive summary</h2><p>' + esc(narr('cfo')) + '</p>';
+    } else {
+      html += '<p class="muted">Add your business data to include performance figures in this brief.</p>';
+    }
+    html += '<p class="tiny">Prepared by BizPulse AI. Figures are estimates from the data entered and are not financial advice.</p>';
+    const body = el('reportBody');
+    body.innerHTML = html;
+    body.querySelectorAll('[data-back-report]').forEach(b => b.addEventListener('click', () => { reportMeeting = null; renderReport(); }));
   }
 
   /* ---------- go ---------- */

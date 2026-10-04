@@ -45,9 +45,10 @@
   /* ---------- empty state ---------- */
   function emptyState() {
     return {
-      business: { name: '', currency: 'INR' },
+      business: { name: '', industry: '', foundedYear: '', employees: '', currency: 'INR', target: 0 },
       cashOnHand: 0,
-      months: []
+      months: [],
+      meetings: []
     };
   }
 
@@ -84,9 +85,10 @@
       cur = addMonths(cur.year, cur.month0, 1);
     }
     return {
-      business: { name: spec.name, currency: spec.currency },
+      business: { name: spec.name, industry: spec.industry || '', foundedYear: '', employees: '', currency: spec.currency, target: 0 },
       cashOnHand: spec.cashOnHand,
-      months: months
+      months: months,
+      meetings: []
     };
   }
 
@@ -97,6 +99,7 @@
       blurb: 'Omni-channel retailer. Steady growth, thin margins, heavy inventory costs. ₹ INR.',
       seed: 20240115,
       name: 'Nimbus Retail Pvt Ltd',
+      industry: 'Retail',
       currency: 'INR',
       startYear: 2024, startMonth0: 4, count: 12,
       cashOnHand: 6000000,
@@ -122,6 +125,7 @@
       blurb: 'Early-stage B2B SaaS. High burn, strong growth, investor-funded. $ USD.',
       seed: 777001,
       name: 'Loopwork Inc.',
+      industry: 'Software / SaaS',
       currency: 'USD',
       startYear: 2024, startMonth0: 6, count: 12,
       cashOnHand: 920000,
@@ -144,6 +148,7 @@
       blurb: 'Two-outlet restaurant group. Profitable, seasonal, healthy cash position. ₹ INR.',
       seed: 55123,
       name: 'Spice Route Foods LLP',
+      industry: 'Food & beverage',
       currency: 'INR',
       startYear: 2024, startMonth0: 3, count: 12,
       cashOnHand: 10000000,
@@ -245,10 +250,12 @@
     return v.toFixed(1) + ' mo';
   }
 
+  const INDUSTRIES = ['Retail', 'Software / SaaS', 'Food & beverage', 'Manufacturing', 'Services / Agency', 'E-commerce', 'Healthcare', 'Education', 'Logistics', 'Other'];
+
   window.BPData = {
     uid, month, num,
     addMonths, monthLabel, labelToParts, prettyLabel, MONTH_NAMES,
-    REVENUE_CATEGORIES, EXPENSE_TYPES, EXPENSE_TYPE_LABEL,
+    REVENUE_CATEGORIES, EXPENSE_TYPES, EXPENSE_TYPE_LABEL, INDUSTRIES,
     emptyState, sampleState, sampleList,
     save, load, clear, saveSettings, loadSettings,
     symbol, formatMoney, formatNumber, formatPct, formatMonths
