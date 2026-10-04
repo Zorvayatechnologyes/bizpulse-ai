@@ -26,18 +26,18 @@ shows a retry notice rather than silently switching to the built-in writer.
 
 ## Sign-in
 
-The app is locked behind a sign-in screen. Accounts are handled by Supabase Auth
-(Google, Apple, and email — password or magic link). The Supabase project URL and
-public (publishable) key are set in `js/auth.js`.
+The app is locked behind a local sign-in. On first use you create an email and
+password for this device; after that you sign in with them. The account is stored
+only in this browser (the password is salted and hashed with SHA-256 via the Web
+Crypto API) and **nothing is sent to any server** — there is no Google, Apple or
+third-party login.
 
-To switch the **Google** and **Apple** buttons on, add their credentials in the
-Supabase dashboard (Authentication -> Providers), and add your deployed URL to
-Authentication -> URL Configuration -> Redirect URLs. **Email** sign-in works
-without any extra setup.
+Because it is entirely local, "Reset sign-in on this device" on the sign-in screen
+deletes the local account if you forget the password (your business data is not
+touched).
 
-Note: because this is a static site, the sign-in gate is a convenience layer —
-the page source is still publicly downloadable. Real content protection needs the
-data served from a backend.
+Note: as with any client-side gate, the page source is still publicly
+downloadable — this is a convenience/privacy lock, not server-enforced security.
 
 ## Files
 
@@ -49,7 +49,7 @@ data served from a backend.
 - `js/llm.js` — live-AI narrative layer (free, keyless provider by default)
 - `js/charts.js` — Chart.js wrappers
 - `js/app.js` — UI controller
-- `js/auth.js` — Supabase sign-in (Google, Apple, email)
+- `js/auth.js` — local sign-in (device-only, no third parties)
 
 Chart.js is loaded from a CDN. SheetJS (spreadsheet import) is fetched on demand the first time you upload a file, so it never slows the initial load. AI narratives are cached, so re-running the agents is instant until your data changes.
 
