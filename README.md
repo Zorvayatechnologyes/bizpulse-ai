@@ -24,6 +24,21 @@ If you prefer, open **Settings → Live AI narratives** and switch to your own
 OpenAI-compatible or Anthropic key instead. If a live call ever fails, the app
 shows a retry notice rather than silently switching to the built-in writer.
 
+## Sign-in
+
+The app is locked behind a sign-in screen. Accounts are handled by Supabase Auth
+(Google, Apple, and email — password or magic link). The Supabase project URL and
+public (publishable) key are set in `js/auth.js`.
+
+To switch the **Google** and **Apple** buttons on, add their credentials in the
+Supabase dashboard (Authentication -> Providers), and add your deployed URL to
+Authentication -> URL Configuration -> Redirect URLs. **Email** sign-in works
+without any extra setup.
+
+Note: because this is a static site, the sign-in gate is a convenience layer —
+the page source is still publicly downloadable. Real content protection needs the
+data served from a backend.
+
 ## Files
 
 - `index.html` — the page
@@ -34,6 +49,7 @@ shows a retry notice rather than silently switching to the built-in writer.
 - `js/llm.js` — live-AI narrative layer (free, keyless provider by default)
 - `js/charts.js` — Chart.js wrappers
 - `js/app.js` — UI controller
+- `js/auth.js` — Supabase sign-in (Google, Apple, email)
 
 Chart.js is loaded from a CDN. SheetJS (spreadsheet import) is fetched on demand the first time you upload a file, so it never slows the initial load. AI narratives are cached, so re-running the agents is instant until your data changes.
 
