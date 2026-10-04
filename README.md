@@ -35,7 +35,7 @@ shows a retry notice rather than silently switching to the built-in writer.
 - `js/charts.js` — Chart.js wrappers
 - `js/app.js` — UI controller
 
-Chart.js and SheetJS are loaded from a CDN.
+Chart.js is loaded from a CDN. SheetJS (spreadsheet import) is fetched on demand the first time you upload a file, so it never slows the initial load. AI narratives are cached, so re-running the agents is instant until your data changes.
 
 ## Design
 

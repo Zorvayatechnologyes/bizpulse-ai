@@ -16,6 +16,14 @@
   let metrics = null;
   let agentResults = null;
   let liveNarratives = {};       // agentId -> {text, live}
+  let aiCache = {};              // agentId -> {sig, text, model, provider}
+  function aiSig(a) {
+    const b = state.business || {};
+    const mm = state.months.map(m => m.label + '~' + m.revenue.reduce((s, r) => s + (+r.amount || 0), 0) + '~' + m.expenses.reduce((s, e) => s + (+e.amount || 0), 0)).join('|');
+    return [a.id, b.name || '', b.currency || '', b.industry || '', mm].join('::');
+  }
+  function persistAi() { try { localStorage.setItem('bizpulse.ai.v1', JSON.stringify(aiCache)); } catch (e) {} }
+  function loadAi() { try { const r = localStorage.getItem('bizpulse.ai.v1'); if (r) aiCache = JSON.parse(r) || {}; } catch (e) {} }
   let selectedMonthId = null;
   let lastMapping = null;
   let running = false;
@@ -193,6 +201,7 @@
   /* ---------- bootstrap ---------- */
   function init() {
     const params = new URLSearchParams(location.search);
+    loadAi();
     const loaded = D.load();
     if (loaded) state = loaded;
     // migrate older saved data
@@ -265,7 +274,11 @@
     closeMenu();
     window.scrollTo({ top: 0, behavior: 'smooth' });
     if (name === 'dashboard' && metrics && !metrics.empty) setTimeout(() => renderCharts(), 30);
-    if (name === 'agents' && agentResults && agentResults.specialists.length) renderAgentList();
+    if (name === 'agents' && agentResults && agentResults.specialists.length) {
+      renderAgentList();
+      /* convenience: fill the narratives automatically (instant when cached) */
+      if (!metrics.empty && !running && Object.keys(liveNarratives).length === 0) runAgents();
+    }
     if (name === 'report') renderReport();
     if (name === 'data') { renderMonthList(); renderEditor(); }
     if (name === 'meetings') renderMeetings();
@@ -423,36 +436,68 @@
   }
   function openAgent(id) { const r = el('agentrow-' + id); if (r) r.classList.add('open'); }
 
-  async function runAgents() {
+  async function runAgents(force) {
     if (!state.months.length) { toast('Add some data first'); return; }
     if (running) return; running = true;
     const btns = [el('btnRunAgents'), el('btnRunAgents2')].filter(Boolean);
     btns.forEach(b => { b.dataset.t = b.textContent; b.innerHTML = '<span class="spin"></span> Running…'; b.disabled = true; });
 
     recompute(); // fresh deterministic results
-    renderAgentList();
-
-    updateAiBadge('running');
     const agents = agentResults.all;
     const prov = (settings.llm && settings.llm.provider) || 'free';
     const keyless = prov === 'free' || !(settings.llm && settings.llm.apiKey);
+
+    /* reuse saved narratives when the data behind them has not changed */
+    const pending = [];
     let ok = 0;
-    for (let i = 0; i < agents.length; i++) {
-      const a = agents[i];
-      const res = await L.narrate(a, metrics, settings);
-      if (res && res.text) {
-        liveNarratives[a.id] = res; ok++;
-        const node = el('narr-' + a.id);
-        if (node) { node.innerHTML = esc(res.text).replace(/\n/g, '<br>'); node.classList.add('live'); }
+    agents.forEach(a => {
+      const sig = aiSig(a);
+      const c = aiCache[a.id];
+      if (!force && c && c.sig === sig && c.text) {
+        liveNarratives[a.id] = { text: c.text, live: true, model: c.model, provider: c.provider };
+        ok++;
       } else {
-        liveNarratives[a.id] = { text: 'Live AI could not be reached for this agent just now. Run the agents again to retry.', live: false, failed: true };
-        const node = el('narr-' + a.id);
-        if (node) { node.innerHTML = esc(liveNarratives[a.id].text); node.classList.remove('live'); }
+        pending.push(a);
       }
-      /* the free keyless service allows only one request at a time */
-      if (keyless && i < agents.length - 1) await new Promise(r => setTimeout(r, 1400));
+    });
+    renderAgentList();
+
+    if (pending.length) {
+      updateAiBadge('running');
+      const CHUNK = 4;   /* one request covers several agents */
+      let done = 0;
+      for (let s = 0; s < pending.length; s += CHUNK) {
+        const chunk = pending.slice(s, s + CHUNK);
+        let got = {};
+        try { got = await L.narrateBatch(chunk, metrics, settings); } catch (e) { got = {}; }
+        for (const a of chunk) {
+          const bt = el('aiBadgeText'); if (bt) bt.textContent = 'Live AI ' + (done + 1) + '/' + pending.length + '…';
+          let res = got[a.id] ? { text: got[a.id], live: true, model: (settings.llm && settings.llm.model) || 'free', provider: prov } : null;
+          if (!res) {
+            /* anything the batch missed gets its own call */
+            const r = await L.narrate(a, metrics, settings);
+            if (r && r.text) res = r;
+          }
+          if (res && res.text) {
+            liveNarratives[a.id] = res; ok++;
+            aiCache[a.id] = { sig: aiSig(a), text: res.text, model: res.model, provider: res.provider };
+            persistAi();
+            const node = el('narr-' + a.id);
+            if (node) { node.innerHTML = esc(res.text).replace(/\n/g, '<br>'); node.classList.add('live'); }
+          } else {
+            liveNarratives[a.id] = { text: 'Live AI could not be reached for this agent just now. Run the agents again to retry.', live: false, failed: true };
+            const node = el('narr-' + a.id);
+            if (node) { node.innerHTML = esc(liveNarratives[a.id].text); node.classList.remove('live'); }
+          }
+          done++;
+        }
+        if (keyless && s + CHUNK < pending.length) await new Promise(r => setTimeout(r, 400));
+      }
     }
-    toast(ok === agents.length ? 'Live AI wrote all ' + agents.length + ' narratives' : 'Live AI wrote ' + ok + ' of ' + agents.length + ' — run again to retry the rest');
+
+    toast(pending.length === 0
+      ? 'Loaded ' + ok + ' saved narratives instantly'
+      : (ok === agents.length ? 'Live AI wrote all ' + agents.length + ' narratives' : 'Live AI wrote ' + ok + ' of ' + agents.length + ' — run again to retry the rest'));
     renderHero();
 
     btns.forEach(b => { b.textContent = b.dataset.t || 'Run all agents'; b.disabled = false; });
@@ -653,9 +698,23 @@
     s.textContent = msg;
   }
 
-  function handleFile(file) {
-    if (!window.XLSX) { setUploadStatus('Spreadsheet library failed to load — check your connection.', 'err'); return; }
+  function loadXLSX() {
+    if (window.XLSX) return Promise.resolve();
+    if (window.__xlsxP) return window.__xlsxP;
+    window.__xlsxP = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+      s.onload = () => resolve();
+      s.onerror = () => { window.__xlsxP = null; reject(new Error('load failed')); };
+      document.head.appendChild(s);
+    });
+    return window.__xlsxP;
+  }
+
+  async function handleFile(file) {
     setUploadStatus('Reading ' + file.name + '…');
+    try { await loadXLSX(); }
+    catch (e) { setUploadStatus('Could not load the spreadsheet library — check your connection, or enter data manually.', 'err'); return; }
     const reader = new FileReader();
     reader.onload = e => {
       try {

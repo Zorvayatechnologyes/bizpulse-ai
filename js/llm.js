@@ -97,7 +97,7 @@
 
   /* Wrapper with retries — the free service rate-limits bursts. */
   async function callLLM(c, system, user, maxTokens) {
-    const tries = KEYLESS[c.provider] ? 6 : 1;
+    const tries = KEYLESS[c.provider] ? 4 : 1;
     let last;
     for (let i = 0; i < tries; i++) {
       try { return await callOnce(c, system, user, maxTokens); }
@@ -106,7 +106,7 @@
         const msg = String((e && e.message) || e);
         const retriable = /40[29]|50\d|failed to fetch|networkerror|load failed|timeout|budget/i.test(msg);
         if (i === tries - 1 || !retriable) throw e;
-        await sleep(1500 * (i + 1));
+        await sleep(700 * (i + 1));
       }
     }
     throw last;
@@ -152,5 +152,45 @@
     }
   }
 
-  window.BPLLM = { isConfigured, narrate, ask, test, defaults: DEFAULTS };
+  /* Write several agents' narratives in ONE request (fewer round trips = faster). */
+  function batchPrompt(agents, m) {
+    const parts = agents.map(a => {
+      const facts = Object.keys(a.facts || {}).map(k => '- ' + k.replace(/_/g, ' ') + ': ' + a.facts[k]).join('\n');
+      const findings = (a.findings || []).map(f => '- ' + f.title + (f.num ? ' = ' + f.num : '')).join('\n');
+      return '### ' + a.id + ' (' + a.name + ', ' + a.role + ') focus: ' + a.focus +
+        '\nFigures:\n' + (facts || '(none)') + '\nFindings:\n' + (findings || '(none)');
+    }).join('\n\n');
+    const system = 'You are a team of business analysts. For EACH labelled section, write a short plain-English analysis of 3 to 4 sentences using ONLY the figures given. Start each analysis with a line exactly like "===<id>===" where <id> is the section id, then the prose on the following lines. No other headings, no bullet points, no preamble.';
+    const user = 'Business: ' + (m.businessName || 'the business') + ' (currency ' + (m.currency || 'INR') + ', ' + m.n + ' months of data).\n\n' + parts + '\n\nWrite every section now.';
+    return { system, user };
+  }
+
+  function parseBatch(text, ids) {
+    const out = {};
+    const re = /={2,}\s*([A-Za-z0-9_-]+)\s*={2,}/g;
+    const marks = [];
+    let m2;
+    while ((m2 = re.exec(text))) marks.push({ id: m2[1], start: m2.index, after: re.lastIndex });
+    for (let i = 0; i < marks.length; i++) {
+      const end = i + 1 < marks.length ? marks[i + 1].start : text.length;
+      const seg = text.slice(marks[i].after, end).trim();
+      if (seg && ids.indexOf(marks[i].id) !== -1) out[marks[i].id] = seg;
+    }
+    return out;
+  }
+
+  async function narrateBatch(agents, m, settings) {
+    const c = cfg(settings);
+    if (!KEYLESS[c.provider] && !c.apiKey) return {};
+    try {
+      const p = batchPrompt(agents, m);
+      const text = await callLLM(c, p.system, p.user, 2000);
+      if (!text) return {};
+      return parseBatch(text, agents.map(a => a.id));
+    } catch (e) {
+      return {};
+    }
+  }
+
+  window.BPLLM = { isConfigured, narrate, narrateBatch, ask, test, defaults: DEFAULTS };
 })();
