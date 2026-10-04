@@ -21,7 +21,7 @@
 
     /* ---------- 1. Profit Analyst ---------- */
     {
-      id: 'profit', name: 'Profit Analyst', role: 'Margins & profitability', icon: '📈', color: '#3b4bd8',
+      id: 'profit', name: 'Profit Analyst', role: 'Margins & profitability', icon: '📈', color: '#BDD7D8',
       blurb: 'Tracks your profit rate, gross and net margins, and where profit is leaking.',
       keywords: ['profit', 'margin', 'profitability', 'gross', 'net', 'earn'],
       analyze(m) {
@@ -86,7 +86,7 @@
 
     /* ---------- 2. Burn & Runway ---------- */
     {
-      id: 'burn', name: 'Burn & Runway Analyst', role: 'Cash burn & runway', icon: '🔥', color: '#e0533d',
+      id: 'burn', name: 'Burn & Runway Analyst', role: 'Cash burn & runway', icon: '🔥', color: '#F7CBCA',
       blurb: 'Measures how fast you are spending, net of revenue, and how many months of cash remain.',
       keywords: ['burn', 'runway', 'months left', 'spend', 'survive', 'out of cash'],
       analyze(m) {
@@ -147,7 +147,7 @@
 
     /* ---------- 3. Cash Flow Analyst ---------- */
     {
-      id: 'cash', name: 'Cash Flow Analyst', role: 'Money flow & liquidity', icon: '💧', color: '#0ea5a4',
+      id: 'cash', name: 'Cash Flow Analyst', role: 'Money flow & liquidity', icon: '💧', color: '#D5E5E5',
       blurb: 'Watches money in versus money out, timing, and your lowest cash point.',
       keywords: ['cash', 'flow', 'liquidity', 'money flow', 'in and out', 'buffer'],
       analyze(m) {
@@ -198,7 +198,7 @@
 
     /* ---------- 4. Revenue Growth Analyst ---------- */
     {
-      id: 'growth', name: 'Revenue Growth Analyst', role: 'Growth & revenue mix', icon: '🚀', color: '#7c3aed',
+      id: 'growth', name: 'Revenue Growth Analyst', role: 'Growth & revenue mix', icon: '🚀', color: '#DDD3D3',
       blurb: 'Measures growth rate, momentum and concentration across your revenue streams.',
       keywords: ['growth', 'revenue', 'sales', 'cagr', 'grow', 'stream', 'mix'],
       analyze(m) {
@@ -253,7 +253,7 @@
 
     /* ---------- 5. Cost Optimisation Analyst ---------- */
     {
-      id: 'cost', name: 'Cost Optimisation Analyst', role: 'Spending & efficiency', icon: '✂️', color: '#d97706',
+      id: 'cost', name: 'Cost Optimisation Analyst', role: 'Spending & efficiency', icon: '✂️', color: '#C9D8D8',
       blurb: 'Finds your biggest cost drivers and where savings can be made safely.',
       keywords: ['cost', 'expense', 'spend', 'save', 'cut', 'reduce', 'overhead'],
       analyze(m) {
@@ -307,7 +307,7 @@
 
     /* ---------- 6. Risk & Anomaly Analyst ---------- */
     {
-      id: 'risk', name: 'Risk & Anomaly Analyst', role: 'Red flags & volatility', icon: '🛡️', color: '#dc2626',
+      id: 'risk', name: 'Risk & Anomaly Analyst', role: 'Red flags & volatility', icon: '🛡️', color: '#E6C6C4',
       blurb: 'Scans for unusual months, volatility and dependency risks before they bite.',
       keywords: ['risk', 'anomaly', 'unusual', 'volatility', 'red flag', 'spike', 'danger'],
       analyze(m) {
