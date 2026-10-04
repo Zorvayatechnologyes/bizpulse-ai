@@ -39,10 +39,12 @@ Chart.js and SheetJS are loaded from a CDN.
 
 ## Design
 
-The interface uses a soft pastel palette: pale cyan-white `#F1F7F7` for the page,
-`#D5E5E5` surfaces, pastel aqua `#BDD7D8` as the accent, soft pink `#F7CBCA`
-for attention states, `#DDD3D3` for neutral borders, and dark slate `#5D6B6B`
-for the sidebar and primary text. Layout is a fixed sidebar on desktop that
-becomes a slide-in drawer on mobile.
+The interface uses a soft pastel palette on a fixed background gradient that runs
+from muted teal `#BCC7C7` at the top to soft pink `#F7CBCA` at the bottom, with
+floating pastel panels over it. Supporting colours: pale cyan-white `#F1F7F7`
+for fields and inner surfaces, `#D5E5E5` for soft fills, pastel aqua `#BDD7D8`
+as the accent, soft pink `#F7CBCA` for attention states, `#DDD3D3` for neutral
+borders, and dark slate `#5D6B6B` for the sidebar and primary text. Layout is a
+fixed sidebar on desktop that becomes a slide-in drawer on mobile.
 
 Figures are estimates derived from the data you enter and are not financial advice.
