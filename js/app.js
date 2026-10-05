@@ -229,13 +229,15 @@
 
     recompute();
     const v = params.get('view');
-    const valid = ['dashboard', 'data', 'agents', 'meetings', 'report', 'knowledge', 'settings'];
+    const valid = ['dashboard', 'data', 'agents', 'meetings', 'report', 'alerts', 'knowledge', 'settings'];
     showView(v && valid.indexOf(v) !== -1 ? v : 'dashboard');
   }
 
   function recompute() {
     metrics = E.compute(state);
     agentResults = A.run(metrics);
+    window.__bpMetrics = metrics;
+    if (window.BPAlerts) window.BPAlerts.refreshBadge();
     liveNarratives = {};
     if (!metrics.empty) {
       renderKPIs(); renderHero(); renderAgentGridPreview(); renderCharts(); renderReport();
@@ -266,10 +268,11 @@
     const bd = document.getElementById('backdrop');
     if (bd) bd.addEventListener('click', () => toggleMenu(false));
   }
+  window.BPShowView = function (n) { showView(n); };
   function showView(name) {
     document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-nav') === name));
-    const titles = { dashboard: 'Overview', data: 'Business data', agents: 'AI agents', meetings: 'Meetings', report: 'Report', knowledge: 'Knowledge', settings: 'Settings' };
+    const titles = { dashboard: 'Overview', data: 'Business data', agents: 'AI agents', meetings: 'Meetings', report: 'Report', alerts: 'Alerts', knowledge: 'Knowledge', settings: 'Settings' };
     const tt = el('topTitle'); if (tt) tt.textContent = titles[name] || 'Overview';
     closeMenu();
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -283,6 +286,7 @@
     if (name === 'data') { renderMonthList(); renderEditor(); }
     if (name === 'meetings') renderMeetings();
     if (name === 'knowledge') renderKnowledge();
+    if (name === 'alerts' && window.BPAlerts) window.BPAlerts.render();
   }
 
   /* ================= DASHBOARD ================= */

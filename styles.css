@@ -658,4 +658,30 @@ body.locked{overflow:hidden}
 .r-pill.demo{background:#F1E3C2;color:#6E4F14}
 .r-pill.backend{background:#E7E2EC;color:#5A4B6B}
 .r-pill.config{background:#F5DEDE;color:#8F4646}
+/* ---------------- alerts ---------------- */
+.nav-badge{margin-left:auto;background:var(--crit);color:#fff;font-size:10.5px;font-weight:800;border-radius:999px;padding:1px 7px;line-height:1.6;min-width:18px;text-align:center}
+.nav-btn.active .nav-badge{background:#fff;color:var(--slate)}
+.alert-list{display:flex;flex-direction:column;gap:12px}
+.alert-card{display:flex;gap:14px;align-items:flex-start;background:var(--surface);border:1px solid rgba(220,231,231,.9);border-left:4px solid var(--aqua);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow-xs)}
+.alert-card.sev-critical{border-left-color:var(--crit)}
+.alert-card.sev-watch{border-left-color:var(--watch)}
+.alert-card.sev-good{border-left-color:var(--good)}
+.alert-card.sev-info{border-left-color:var(--aqua)}
+.alert-card.is-read{opacity:.72}
+.alert-card.is-resolved{border-left-color:var(--good);opacity:.6}
+.alert-ico{width:34px;height:34px;border-radius:11px;flex:0 0 34px;display:grid;place-items:center;font-size:16px;background:var(--aqua-2)}
+.alert-card.sev-critical .alert-ico{background:var(--crit-bg)}
+.alert-card.sev-watch .alert-ico{background:var(--watch-bg)}
+.alert-card.sev-good .alert-ico{background:var(--good-bg)}
+.alert-main{flex:1;min-width:0}
+.alert-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.alert-title{font-weight:700;color:var(--ink);font-size:14.5px}
+.alert-reason{font-size:13px;color:var(--ink-2);margin-top:4px;line-height:1.55}
+.alert-action{font-size:13px;color:var(--ink);margin-top:8px;padding:9px 11px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line)}
+.alert-action b{color:var(--slate)}
+.alert-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
+.alert-btns{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.alert-btns .btn{padding:6px 11px;font-size:12.5px}
+.alert-empty{padding:28px;border:1px dashed var(--line-2);border-radius:14px;color:var(--muted);font-size:13.5px;text-align:center;background:rgba(255,255,255,.55)}
+@media(max-width:640px){.alert-card{flex-direction:column;gap:10px}.alert-ico{width:30px;height:30px;flex-basis:30px}}
 

@@ -51,6 +51,7 @@ downloadable — this is a convenience/privacy lock, not server-enforced securit
 - `js/app.js` — UI controller
 - `js/auth.js` — auth layer (DEMO / LOCAL sign-in; swap the adapter for a backend)
 - `js/diagnostics.js` — Product readiness panel (honest status)
+- `js/alerts.js` — Smart Alerts centre (deterministic alerts from the metrics)
 
 Chart.js is loaded from a CDN. SheetJS (spreadsheet import) is fetched on demand the first time you upload a file, so it never slows the initial load. AI narratives are cached, so re-running the agents is instant until your data changes.
 
