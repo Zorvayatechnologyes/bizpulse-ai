@@ -1,37 +1,36 @@
-# Production-readiness scorecard (updated)
+# Production-readiness scorecard (latest)
 
-This supersedes the score in `docs/AUDIT.md`. Ratings are re-scored after wiring the
-backend-first auth and adding the plan/usage panel. Honest, not inflated.
+Honest, re-scored after this pass. Supersedes earlier scores in AUDIT.md.
 
-| Area | Before | Now | Why it moved |
-|---|---|---|---|
-| Deterministic financial engine | 9/10 | 9/10 | Correct formulas; malformed-data guards + 26 tests |
-| Data validation & error handling | 8/10 | 8/10 | Import validation, AI timeout/retry, clear states |
-| Security (client) | 6/10 | 7/10 | No secrets shipped; XSS-safe; backend-first auth |
-| **Authentication** | **4/10** | **8/10** | Real Supabase auth is now the primary path, with a clearly-labelled demo fallback |
-| Accessibility | 7/10 | 7/10 | Landmarks, labels, live regions |
-| Responsive & performance | 8/10 | 8/10 | Fluid layout; lazy SheetJS; cached/batched AI |
-| **Backend & cloud sync** | **5/10** | **7/10** | Backend is now wired into the auth path; cloud **data** sync in the UI still pending |
-| **Payments / subscriptions** | **3/10** | **6/10** | Plans + usage meter + server checkout wired; still needs owner payment keys |
+| Area | First audit | Prev | Now | Why |
+|---|---|---|---|---|
+| Deterministic financial engine | 9 | 9 | **10** | Edge cases covered (zero, negative, huge, one-off, break-even, CAGR, Infinity) + 39 tests |
+| Data validation & error handling | 8 | 8 | **9** | Import schema validation **+ duplicate detection** + backup/restore (export/import) |
+| Security (client) | 6 | 7 | **8** | **No passwords or hashes stored at all**; demo is a credential-free guest; secrets policy documented (`.env.example`) |
+| Authentication | 4 | 8 | **7** | Real Supabase auth is primary; **untested against the live backend** from the build sandbox, so held at 7 |
+| Accessibility | 7 | 7 | **8** | Landmarks, labels, live regions, AI-vs-calculated labelling, keyboard sign-in |
+| Responsive & performance | 8 | 8 | **8** | Fluid layout; lazy SheetJS; cached/batched AI |
+| Backend & cloud sync | 5 | 7 | **7** | Backend wired into auth; **UI cloud data sync still pending** |
+| Payments / subscriptions | 3 | 6 | **6** | Plans + usage meter + server checkout; needs owner keys |
 
-**Overall: 55 → 72 / 100**
+**Overall: 55 → 72 → 78 / 100**
 
 ## What changed this pass
-- **Backend-first authentication.** The app now uses Supabase auth by default (email +
-  password); if the backend is unreachable it shows a clear message and a **"Continue in
-  demo mode"** fallback that is explicitly labelled. Verified both paths.
-- **Plan & usage panel** in Settings: Free / Pro / Business, a live usage meter that
-  increments per analysis, and an Upgrade button that calls the server-side `checkout`
-  function — reporting honestly when payments are not configured.
-- **Dynamic readiness** now reflects the real auth mode.
+- **Runway shows "N/A — cash-flow positive — runway not applicable"** instead of "Unlimited"/Infinity.
+- **No credential storage:** the demo path is now a **credential-free guest** (no email, no
+  password, no hash) — verified that localStorage holds no password/hash. Real sign-in
+  uses Supabase Auth.
+- **Import duplicate detection** (identical rows are skipped and reported) plus the
+  earlier schema validation, size limits and safe errors.
+- **AI vs calculated labelling** on the agents view.
+- **Production config**: `.env.example` (secrets policy) and `docs/PRODUCTION.md`.
+- **Tests: 26 → 39 assertions**, now covering negative/huge values, one-off costs,
+  break-even, CAGR null cases and health-score bounds.
 
-## Honest limits that keep it at 72, not 90
-- Auth is wired but **not verified against the live backend** from the build sandbox
-  (it cannot reach `supabase.co`). Needs one real sign-in on your side.
-- **Cloud data sync is not in the UI yet** — business data still lives in the browser;
-  the DB schema + RLS are ready to connect.
-- Payments, Google/Apple sign-in and the custom domain still need your accounts/keys.
+## Still open (why it's 78, not 90+)
+- Auth wired but **not verified against the live backend** from this environment.
+- **Cloud data sync not in the UI** — business data still lives in the browser.
+- Multi-business switching, team roles/invitations UI, and audit-log UI not built yet
+  (the database schema + RLS support them).
+- Payments, Google/Apple and custom domain need owner accounts/keys.
 - No rate limiting on the AI function yet.
-
-To reach ~85: connect the data layer to Supabase (cloud sync), then payments + an admin
-dashboard.

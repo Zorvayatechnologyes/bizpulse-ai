@@ -301,7 +301,7 @@
       { icon: 'trend', tile: '#BDD7D8', tone: m.trend.revenue === 'up' ? 'tone-good' : m.trend.revenue === 'down' ? 'tone-crit' : '', spark: m.months.map(r => r.revenue), label: 'Revenue / month', value: money(m.avg.revenue), sub: 'latest ' + money(m.growth.lastRevenue), info: 'Average monthly revenue across the period.' },
       { icon: 'percent', tile: '#D5E5E5', tone: m.avg.netMargin >= 0.1 ? 'tone-good' : m.avg.netMargin >= 0 ? 'tone-watch' : 'tone-crit', spark: m.months.map(r => r.netMargin), label: 'Net profit rate', value: pct(m.avg.netMargin), sub: 'avg profit ' + money(m.avg.netProfit), cls: m.avg.netMargin >= 0 ? 'trend-up' : 'trend-down', info: 'Net profit ÷ revenue, averaged. (revenue − all expenses) ÷ revenue.' },
       { icon: 'flame', tile: '#F7CBCA', tone: m.burn.profitable ? 'tone-good' : 'tone-crit', spark: m.months.map(r => r.netBurn), label: 'Net burn / month', value: m.burn.profitable ? 'Positive' : money(m.burn.netBurn), sub: m.burn.profitable ? 'cash-flow positive' : 'spend − revenue', cls: m.burn.profitable ? 'trend-up' : 'trend-down', info: 'Monthly expenses minus monthly revenue, 3-month average. Positive = burning cash.' },
-      { icon: 'clock', tile: '#DDD3D3', tone: m.burn.profitable || m.burn.runwayMonths >= 12 ? 'tone-good' : m.burn.runwayMonths >= 6 ? 'tone-watch' : 'tone-crit', spark: m.months.map(r => r.cumulativeCash), label: 'Runway', value: m.burn.profitable ? 'Unlimited' : D.formatMonths(m.burn.runwayMonths), sub: 'cash ' + money(m.cash.cashOnHand), info: 'Cash on hand ÷ net monthly burn. Unlimited means the business is not burning cash.' },
+      { icon: 'clock', tile: '#DDD3D3', tone: m.burn.profitable || m.burn.runwayMonths >= 12 ? 'tone-good' : m.burn.runwayMonths >= 6 ? 'tone-watch' : 'tone-crit', spark: m.months.map(r => r.cumulativeCash), label: 'Runway', value: m.burn.profitable ? 'N/A' : D.formatMonths(m.burn.runwayMonths), sub: m.burn.profitable ? 'cash-flow positive — runway not applicable' : 'cash ' + money(m.cash.cashOnHand), info: 'Cash on hand ÷ net monthly burn. When the business is cash-flow positive, runway does not apply.' },
       { icon: 'card', tile: '#C9D8D8', tone: '', spark: m.months.map(r => r.cumulativeCash), label: 'Cash position', value: money(m.cash.end), sub: 'low ' + money(m.cash.lowest), info: 'Closing cash balance and the lowest point reached.' },
       { icon: 'activity', tile: '#5D6B6B', dark: true, tone: m.health.score >= 65 ? 'tone-good' : m.health.score >= 45 ? 'tone-watch' : 'tone-crit', spark: runningProfit, label: 'Health score', value: String(m.health.score) + '/100', sub: 'Grade ' + m.health.grade, cls: m.health.score >= 65 ? 'trend-up' : m.health.score >= 45 ? 'trend-flat' : 'trend-down', info: 'Weighted score across profitability, liquidity, growth, cost control and stability.' }
     ];
@@ -800,7 +800,19 @@
 
   function doImport() {
     if (!lastMapping) return;
-    const { data } = lastMapping;
+    let { data } = lastMapping;
+    /* duplicate detection: drop rows identical to an earlier one and report it */
+    const seen = new Set();
+    const deduped = [];
+    let dupes = 0;
+    data.forEach(r => {
+      const sig = r.map(c => String(c == null ? '' : c).trim().toLowerCase()).join('|');
+      if (seen.has(sig)) { dupes++; return; }
+      seen.add(sig); deduped.push(r);
+    });
+    if (dupes) { setUploadStatus('Skipped ' + dupes + ' duplicate row' + (dupes === 1 ? '' : 's') + ' before import.', 'ok'); }
+    data = deduped;
+    lastMapping.data = deduped;
     const mode = el('mapMode').value;
     const monthCol = +el('mapMonth').value;
     const byMonth = {};

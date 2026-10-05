@@ -99,5 +99,49 @@ const month = (label, rev, exp) => ({
   ok("health score 0..100", m && m.health.score >= 0 && m.health.score <= 100);
 }
 
+
+// ---- more edge cases: negative, huge, one-off, break-even, health, cagr ----
+{
+  const neg = E.monthTotals(month("2025-01", [["Refund", -500]], [["Rent", 100, "fixed"]]));
+  ok("negative revenue finite", finite(neg.revenue) && neg.revenue === -500);
+  ok("negative revenue net profit finite", finite(neg.netProfit));
+
+  const huge = E.monthTotals(month("2025-01", [["Big", 1e15]], [["Cost", 4e14, "variable"]]));
+  ok("huge values finite", finite(huge.revenue) && finite(huge.netMargin));
+
+  const oneoff = E.monthTotals(month("2025-01", [["Sales", 1000]], [["Equipment", 500, "one-off"]]));
+  ok("one-off counted in expenses", oneoff.expenses === 500);
+  ok("one-off reduces net profit", oneoff.netProfit === 500);
+}
+{
+  const state = {
+    cashOnHand: 100000, business: { currency: "INR" },
+    months: [
+      month("2025-01", [["Sales", 0]], [["Rent", 100000, "fixed"]]),
+      month("2025-02", [["Sales", 0]], [["Rent", 100000, "fixed"]]),
+    ],
+  };
+  const m = E.compute(state);
+  ok("loss-making -> health 0..100", m.health.score >= 0 && m.health.score <= 100);
+  ok("zero revenue -> cagr null", m.growth.cagr === null || isFinite(m.growth.cagr));
+  ok("totals equal sum of months", close(m.totals.revenue, m.months.reduce((s, r) => s + r.revenue, 0)));
+  ok("breakEvenRevenue finite or null", m.breakEven.breakEvenRevenue === null || finite(m.breakEven.breakEvenRevenue));
+}
+{
+  const state = {
+    cashOnHand: 1000000, business: { currency: "INR" },
+    months: [
+      month("2025-01", [["Sales", 500000]], [["Rent", 100000, "fixed"], ["COGS", 200000, "variable"]]),
+      month("2025-02", [["Sales", 600000]], [["Rent", 100000, "fixed"], ["COGS", 220000, "variable"]]),
+      month("2025-03", [["Sales", 700000]], [["Rent", 100000, "fixed"], ["COGS", 240000, "variable"]]),
+    ],
+  };
+  const m = E.compute(state);
+  ok("break-even revenue computed", finite(m.breakEven.breakEvenRevenue));
+  ok("contribution margin ratio 0..1", m.breakEven.contributionMarginRatio > 0 && m.breakEven.contributionMarginRatio <= 1);
+  ok("profitable -> no burn", m.burn.profitable === true);
+  ok("runway infinite when profitable", m.burn.runwayMonths === Infinity || !isFinite(m.burn.runwayMonths));
+}
+
 console.log(`\nengine tests: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

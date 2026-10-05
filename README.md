@@ -49,7 +49,7 @@ downloadable — this is a convenience/privacy lock, not server-enforced securit
 - `js/llm.js` — live-AI narrative layer (free, keyless provider by default)
 - `js/charts.js` — Chart.js wrappers
 - `js/app.js` — UI controller
-- `js/auth.js` — auth layer (Supabase backend when reachable, DEMO/LOCAL fallback)
+- `js/auth.js` — auth layer (Supabase backend; credential-free demo guest)
 - `js/plan.js` — plan & usage panel (server-processed upgrades)
 - `js/diagnostics.js` — Product readiness panel (honest status)
 - `js/alerts.js` — Smart Alerts centre (deterministic alerts from the metrics)
