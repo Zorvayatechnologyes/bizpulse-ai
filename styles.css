@@ -647,3 +647,15 @@ body.locked{overflow:hidden}
 .auth-status.ok{background:var(--good-bg);border-color:#C6E0D2;color:#3B7561}
 .auth-note{font-size:11.5px;color:var(--muted);margin:16px 0 0;text-align:center}
 @media(max-width:420px){.auth-card{padding:26px 20px}}
+.auth-badge{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--watch);background:var(--watch-bg);border:1px solid #E7D3A6;border-radius:999px;padding:3px 9px;margin-bottom:10px}
+
+/* ---------------- product readiness ---------------- */
+.readiness-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.r-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 13px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2)}
+.r-item .r-label{font-size:13px;font-weight:600;color:var(--ink)}
+.r-pill{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:4px 9px;border-radius:999px;white-space:nowrap;flex:0 0 auto}
+.r-pill.ready{background:#D8EBE1;color:#2C604F}
+.r-pill.demo{background:#F1E3C2;color:#6E4F14}
+.r-pill.backend{background:#E7E2EC;color:#5A4B6B}
+.r-pill.config{background:#F5DEDE;color:#8F4646}
+
