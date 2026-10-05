@@ -20,14 +20,20 @@
     const m = avg(arr);
     return Math.sqrt(avg(arr.map(x => (x - m) * (x - m))));
   }
-  function safeDiv(a, b) { return (b === 0 || !isFinite(b)) ? 0 : a / b; }
+  function safeDiv(a, b) { if (!isFinite(a) || !isFinite(b) || b === 0) return 0; return a / b; }
   function round(v, d) { const f = Math.pow(10, d == null ? 2 : d); return Math.round(v * f) / f; }
 
   function monthTotals(m) {
-    const revenue = sum(m.revenue.map(r => r.amount));
-    const fixed = sum(m.expenses.filter(e => e.type === 'fixed').map(e => e.amount));
-    const variable = sum(m.expenses.filter(e => e.type === 'variable').map(e => e.amount));
-    const oneoff = sum(m.expenses.filter(e => e.type === 'one-off').map(e => e.amount));
+    /* Defensive: tolerate missing arrays and non-numeric amounts so a malformed
+       import can never produce NaN/Infinity or throw. */
+    const revItems = Array.isArray(m && m.revenue) ? m.revenue : [];
+    const expItems = Array.isArray(m && m.expenses) ? m.expenses : [];
+    const n = D.num;
+    const byType = (t) => sum(expItems.filter(e => e && e.type === t).map(e => n(e.amount)));
+    const revenue = sum(revItems.map(r => n(r && r.amount)));
+    const fixed = byType('fixed');
+    const variable = byType('variable');
+    const oneoff = byType('one-off');
     const expenses = fixed + variable + oneoff;
     const grossProfit = revenue - variable;          // variable = cost of revenue
     const netProfit = revenue - expenses;
@@ -158,7 +164,7 @@
 
     /* ---- breakdowns ---- */
     const expMap = {};
-    months.forEach(m => m.expenses.forEach(e => {
+    months.forEach(m => (Array.isArray(m.expenses) ? m.expenses : []).forEach(e => {
       const k = e.name || 'Unnamed';
       if (!expMap[k]) expMap[k] = { name: k, amount: 0, type: e.type };
       expMap[k].amount += e.amount;
@@ -167,7 +173,7 @@
     expenseBreakdown.forEach(e => e.share = safeDiv(e.amount, totals.expenses));
 
     const revMap = {};
-    months.forEach(m => m.revenue.forEach(r => {
+    months.forEach(m => (Array.isArray(m.revenue) ? m.revenue : []).forEach(r => {
       const k = r.name || 'Unnamed';
       if (!revMap[k]) revMap[k] = { name: k, amount: 0, category: r.category };
       revMap[k].amount += r.amount;
@@ -176,7 +182,7 @@
     revenueBreakdown.forEach(r => r.share = safeDiv(r.amount, totals.revenue));
 
     const catMap = {};
-    months.forEach(m => m.revenue.forEach(r => {
+    months.forEach(m => (Array.isArray(m.revenue) ? m.revenue : []).forEach(r => {
       const k = r.category || 'Other';
       catMap[k] = (catMap[k] || 0) + r.amount;
     }));

@@ -971,21 +971,60 @@
     a.click();
     toast('Exported');
   }
+  /* Validate + normalise an imported export so bad data can never crash the app. */
+  function sanitizeImportedState(s) {
+    if (!s || typeof s !== 'object' || !Array.isArray(s.months)) return null;
+    const CUR = ['INR', 'USD', 'EUR', 'GBP'];
+    const TYPES = ['fixed', 'variable', 'one-off'];
+    const str = (v, max) => String(v == null ? '' : v).slice(0, max);
+    const months = s.months.slice(0, 600).map(m => {
+      if (!m || typeof m !== 'object' || typeof m.label !== 'string' || !m.label) return null;
+      const rev = (Array.isArray(m.revenue) ? m.revenue : []).slice(0, 200).map(r => ({
+        id: str(r && r.id, 40) || D.uid('r'), name: str(r && r.name, 120) || 'Item',
+        amount: D.num(r && r.amount), category: str(r && r.category, 60) || 'Other'
+      }));
+      const exp = (Array.isArray(m.expenses) ? m.expenses : []).slice(0, 200).map(e => ({
+        id: str(e && e.id, 40) || D.uid('e'), name: str(e && e.name, 120) || 'Item',
+        amount: D.num(e && e.amount), type: TYPES.indexOf(e && e.type) >= 0 ? e.type : 'fixed'
+      }));
+      return { id: str(m.id, 40) || D.uid('m'), label: str(m.label, 40), revenue: rev, expenses: exp };
+    }).filter(Boolean);
+    if (!months.length) return null;
+    const biz = (s.business && typeof s.business === 'object') ? s.business : {};
+    const meetings = (Array.isArray(s.meetings) ? s.meetings : []).slice(0, 200).map(mm => ({
+      id: str(mm && mm.id, 40) || D.uid('x'), title: str(mm && mm.title, 140),
+      date: str(mm && mm.date, 20), time: str(mm && mm.time, 10), agenda: str(mm && mm.agenda, 4000)
+    }));
+    return {
+      business: {
+        name: str(biz.name, 120), industry: str(biz.industry, 60), foundedYear: str(biz.foundedYear, 10),
+        employees: str(biz.employees, 10), currency: CUR.indexOf(biz.currency) >= 0 ? biz.currency : 'INR',
+        target: D.num(biz.target)
+      },
+      cashOnHand: D.num(s.cashOnHand), months: months, meetings: meetings
+    };
+  }
+
   function importJson(e) {
     const f = e.target.files[0]; if (!f) return;
+    if (f.size > 5 * 1024 * 1024) { toast('That file is too large (max 5 MB)'); e.target.value = ''; return; }
     const r = new FileReader();
     r.onload = ev => {
-      try {
-        const d = JSON.parse(ev.target.result);
-        if (d.state && Array.isArray(d.state.months)) {
-          state = d.state;
-          if (d.settings) settings = Object.assign(settings, d.settings);
-          selectedMonthId = state.months.length ? state.months[0].id : null;
-          syncDataForm(); syncSettingsForm(); recompute(); renderMonthList(); renderEditor();
-          showView('dashboard'); toast('Data imported');
-        } else toast('That file is not a BizPulse export');
-      } catch (err) { toast('Could not read that file'); }
+      let d;
+      try { d = JSON.parse(ev.target.result); }
+      catch (err) { toast('That file is not valid JSON'); e.target.value = ''; return; }
+      const clean = sanitizeImportedState(d && d.state ? d.state : d);
+      if (!clean) { toast('That file is not a valid BizPulse export'); e.target.value = ''; return; }
+      state = clean;
+      if (d && d.settings && typeof d.settings === 'object') {
+        if (['INR', 'USD', 'EUR', 'GBP'].indexOf(d.settings.currency) >= 0) settings.currency = d.settings.currency;
+        if (typeof d.settings.compact === 'boolean') settings.compact = d.settings.compact;
+      }
+      selectedMonthId = state.months.length ? state.months[0].id : null;
+      syncDataForm(); syncSettingsForm(); recompute(); renderMonthList(); renderEditor();
+      showView('dashboard'); toast('Data imported'); e.target.value = '';
     };
+    r.onerror = () => { toast('Could not read that file'); e.target.value = ''; };
     r.readAsText(f);
   }
 

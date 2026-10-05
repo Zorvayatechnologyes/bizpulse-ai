@@ -48,11 +48,18 @@
   }
 
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  /* fetch with a hard timeout so a stalled provider can never hang the UI */
+  async function fetchT(url, opts, ms) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(function () { ctrl.abort(); }, ms || 30000);
+    try { return await fetch(url, Object.assign({}, opts, { signal: ctrl.signal })); }
+    finally { clearTimeout(timer); }
+  }
 
   /* One network attempt. */
   async function callOnce(c, system, user, maxTokens) {
     if (c.provider === 'anthropic') {
-      const res = await fetch(c.baseUrl.replace(/\/$/, '') + '/messages', {
+      const res = await fetchT(c.baseUrl.replace(/\/$/, '') + '/messages', {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
@@ -69,7 +76,7 @@
     }
     if (KEYLESS[c.provider]) {
       /* Free, keyless OpenAI-compatible endpoint — no Authorization header. */
-      const res = await fetch(c.baseUrl, {
+      const res = await fetchT(c.baseUrl, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -82,7 +89,7 @@
       return ((data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '').trim();
     }
     /* OpenAI-compatible with a user-supplied key. */
-    const res = await fetch(c.baseUrl.replace(/\/$/, '') + '/chat/completions', {
+    const res = await fetchT(c.baseUrl.replace(/\/$/, '') + '/chat/completions', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'authorization': 'Bearer ' + c.apiKey },
       body: JSON.stringify({
