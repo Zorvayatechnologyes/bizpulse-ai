@@ -54,9 +54,10 @@
 
     /* ---- per month ---- */
     const rows = months.map(m => {
+      if (!m || typeof m !== 'object') return null;   /* tolerate null/garbage entries */
       const t = monthTotals(m);
       return Object.assign({ label: m.label, pretty: D.prettyLabel(m.label) }, t);
-    });
+    }).filter(Boolean);
     rows.sort((a, b) => a.label < b.label ? -1 : a.label > b.label ? 1 : 0);
 
     // growth + cash flow
@@ -164,7 +165,7 @@
 
     /* ---- breakdowns ---- */
     const expMap = {};
-    months.forEach(m => (Array.isArray(m.expenses) ? m.expenses : []).forEach(e => {
+    months.forEach(m => (m && Array.isArray(m.expenses) ? m.expenses : []).forEach(e => {
       const k = e.name || 'Unnamed';
       if (!expMap[k]) expMap[k] = { name: k, amount: 0, type: e.type };
       expMap[k].amount += e.amount;
@@ -173,7 +174,7 @@
     expenseBreakdown.forEach(e => e.share = safeDiv(e.amount, totals.expenses));
 
     const revMap = {};
-    months.forEach(m => (Array.isArray(m.revenue) ? m.revenue : []).forEach(r => {
+    months.forEach(m => (m && Array.isArray(m.revenue) ? m.revenue : []).forEach(r => {
       const k = r.name || 'Unnamed';
       if (!revMap[k]) revMap[k] = { name: k, amount: 0, category: r.category };
       revMap[k].amount += r.amount;
@@ -182,7 +183,7 @@
     revenueBreakdown.forEach(r => r.share = safeDiv(r.amount, totals.revenue));
 
     const catMap = {};
-    months.forEach(m => (Array.isArray(m.revenue) ? m.revenue : []).forEach(r => {
+    months.forEach(m => (m && Array.isArray(m.revenue) ? m.revenue : []).forEach(r => {
       const k = r.category || 'Other';
       catMap[k] = (catMap[k] || 0) + r.amount;
     }));

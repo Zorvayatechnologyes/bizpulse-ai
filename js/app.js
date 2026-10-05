@@ -22,8 +22,20 @@
     const mm = state.months.map(m => m.label + '~' + m.revenue.reduce((s, r) => s + (+r.amount || 0), 0) + '~' + m.expenses.reduce((s, e) => s + (+e.amount || 0), 0)).join('|');
     return [a.id, b.name || '', b.currency || '', b.industry || '', mm].join('::');
   }
-  function persistAi() { try { localStorage.setItem('bizpulse.ai.v1', JSON.stringify(aiCache)); } catch (e) {} }
-  function loadAi() { try { const r = localStorage.getItem('bizpulse.ai.v1'); if (r) aiCache = JSON.parse(r) || {}; } catch (e) {} }
+  var AI_CACHE_V = 2, AI_TTL = 24 * 3600 * 1000;   /* version + 24h expiry */
+  function persistAi() { try { localStorage.setItem('bizpulse.ai.v2', JSON.stringify(aiCache)); } catch (e) {} }
+  function loadAi() {
+    try {
+      const r = localStorage.getItem('bizpulse.ai.v2');
+      if (!r) return;
+      const raw = JSON.parse(r) || {};
+      const now = Date.now();
+      Object.keys(raw).forEach(function (k) {
+        const e = raw[k];
+        if (e && e.v === AI_CACHE_V && e.t && (now - e.t) < AI_TTL) aiCache[k] = e;
+      });
+    } catch (e) {}
+  }
   let selectedMonthId = null;
   let lastMapping = null;
   let running = false;
@@ -484,7 +496,7 @@
           }
           if (res && res.text) {
             liveNarratives[a.id] = res; ok++;
-            aiCache[a.id] = { sig: aiSig(a), text: res.text, model: res.model, provider: res.provider };
+            aiCache[a.id] = { v: AI_CACHE_V, t: Date.now(), sig: aiSig(a), text: res.text, model: res.model, provider: res.provider };
             persistAi();
             const node = el('narr-' + a.id);
             if (node) { node.innerHTML = esc(res.text).replace(/\n/g, '<br>'); node.classList.add('live'); }
