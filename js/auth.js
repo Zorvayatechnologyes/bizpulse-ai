@@ -1,19 +1,20 @@
 /* ============================================================
-   AUTH LAYER — DEMO / LOCAL AUTH  (no backend connected)
+   AUTH — Supabase backend when reachable, DEMO / LOCAL otherwise
    ------------------------------------------------------------
-   This sign-in is device-local and is NOT secure authentication:
-   the account lives in this browser's localStorage and anyone with
-   the page source can bypass the gate. It exists so the product is
-   usable today, and so the UI can be pointed at a real backend
-   later without touching the interface.
-
-   The UI only ever calls window.BPAuth.*. To go live, replace the
-   adapter below with Supabase / Firebase / your own API. Keep the
-   same method names and the same return shape { ok, user?, error? }.
+   The UI only ever calls window.BPAuth.*. Two adapters implement the
+   same API: a Supabase adapter (real accounts, cloud) and a
+   device-local demo adapter. If the backend is unreachable the user
+   can continue in demo mode, clearly labelled.
+   No secrets live here — only the public publishable key.
    ============================================================ */
 (function () {
   'use strict';
+  var CONFIG = {
+    supabaseUrl: 'https://xxszydatmykvdnslwgoe.supabase.co',
+    supabaseKey: 'sb_publishable_nPAykkPJJA-zbVBjgcYY2A_nZ7P4FOt'
+  };
   var ACCT = 'bizpulse.account.v1', SESS = 'bizpulse.session.v1';
+  var sb = null;
   function $(id) { return document.getElementById(id); }
   function read(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
   function write(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
@@ -34,30 +35,41 @@
     return 'fnv' + (h >>> 0).toString(16);
   }
   function isEmail(e) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e); }
+  function friendly(e) {
+    var m = String((e && e.message) || e || 'Something went wrong.');
+    if (/fetch|network|load failed|failed to fetch|timeout|abort/i.test(m)) return 'Could not reach the backend. Check your connection, or continue in demo mode.';
+    return m;
+  }
+  function loadSupabase() {
+    if (window.supabase && window.supabase.createClient) return Promise.resolve();
+    if (window.__sbP) return window.__sbP;
+    window.__sbP = new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+      s.onload = function () { resolve(); };
+      s.onerror = function () { window.__sbP = null; reject(new Error('Could not load the sign-in library')); };
+      document.head.appendChild(s);
+    });
+    return window.__sbP;
+  }
 
-  /* ---------------- BACKEND ADAPTER ----------------
-     DEMO / LOCAL implementation. Replace these five bodies with real
-     calls; keep the signatures and the { ok, user?, error? } shape. */
-  var adapter = {
-    mode: 'local',
-    secure: false,
+  /* ---------------- DEMO / LOCAL adapter ---------------- */
+  var localAdapter = {
+    mode: 'local', secure: false,
     async signup(email, password) {
       if (read(ACCT)) return { ok: false, error: 'An account already exists on this device.' };
       var salt = rand(16);
       var acct = { email: email, salt: salt, hash: await hash(password, salt), created: new Date().toISOString() };
-      write(ACCT, acct);
-      var s = { email: email, since: new Date().toISOString() };
-      write(SESS, s);
-      return { ok: true, user: { email: email }, session: s };
+      write(ACCT, acct); write(SESS, { email: email, since: new Date().toISOString() });
+      return { ok: true, user: { email: email } };
     },
     async login(email, password) {
       var acct = read(ACCT);
       if (!acct) return { ok: false, error: 'No account on this device yet.' };
       if (email !== acct.email) return { ok: false, error: 'That is not the email set up on this device.' };
       if ((await hash(password, acct.salt)) !== acct.hash) return { ok: false, error: 'Incorrect password.' };
-      var s = { email: email, since: new Date().toISOString() };
-      write(SESS, s);
-      return { ok: true, user: { email: email }, session: s };
+      write(SESS, { email: email, since: new Date().toISOString() });
+      return { ok: true, user: { email: email } };
     },
     async logout() { del(SESS); return { ok: true }; },
     async resetPassword(email) {
@@ -68,26 +80,87 @@
     },
     async getSession() {
       var acct = read(ACCT), s = read(SESS);
-      if (acct && s && s.email === acct.email) return { ok: true, user: { email: acct.email }, session: s };
-      return { ok: true, user: null, session: null };
+      if (acct && s && s.email === acct.email) return { ok: true, user: { email: acct.email } };
+      return { ok: true, user: null };
+    },
+    hasAccount: function () { return !!read(ACCT); }
+  };
+
+  /* ---------------- Supabase adapter ---------------- */
+  var supabaseAdapter = {
+    mode: 'backend', secure: true,
+    async signup(email, password) {
+      var r = await sb.auth.signUp({ email: email, password: password });
+      if (r.error) throw r.error;
+      if (!r.data.session) return { ok: false, error: 'Account created — check your email to confirm, then sign in.' };
+      return { ok: true, user: r.data.user };
+    },
+    async login(email, password) {
+      var r = await sb.auth.signInWithPassword({ email: email, password: password });
+      if (r.error) throw r.error;
+      return { ok: true, user: r.data.user };
+    },
+    async logout() { await sb.auth.signOut(); return { ok: true }; },
+    async resetPassword(email) {
+      var r = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+      if (r.error) throw r.error;
+      return { ok: true, message: 'Reset email sent.' };
+    },
+    async getSession() {
+      var r = await sb.auth.getSession();
+      var s = r.data && r.data.session;
+      return { ok: true, user: s ? s.user : null };
+    },
+    hasAccount: function () { return false; }
+  };
+
+  var active = localAdapter;
+  var listeners = [];
+  function emit(u) { listeners.forEach(function (cb) { try { cb(u); } catch (e) {} }); }
+
+  window.BPAuth = {
+    mode: 'local', isSecure: false, isBackendConnected: false,
+    hasAccount: function () { return active.hasAccount ? active.hasAccount() : false; },
+    async login(email, password) {
+      try { return await active.login(email, password); }
+      catch (e) { return { ok: false, error: friendly(e), offline: true }; }
+    },
+    async signup(email, password) {
+      try { return await active.signup(email, password); }
+      catch (e) { return { ok: false, error: friendly(e), offline: true }; }
+    },
+    async logout() { try { var r = await active.logout(); } catch (e) {} emit(null); return { ok: true }; },
+    async resetPassword(email) {
+      try { return await active.resetPassword(email); }
+      catch (e) { return { ok: false, error: friendly(e), offline: true }; }
+    },
+    async getSession() {
+      try { return await active.getSession(); }
+      catch (e) { return { ok: true, user: null }; }
+    },
+    onChange: function (cb) { listeners.push(cb); },
+    useDemo: function () { setActive(localAdapter); },
+    /* ---- API layer stub for future cloud data sync ---- */
+    async api(fn, args) {
+      if (active.mode !== 'backend' || !sb) return { ok: false, error: 'backend-unavailable' };
+      return { ok: true, data: await fn(sb, args) };
     }
   };
 
-  /* ---------------- PUBLIC API (the UI calls only this) ---------------- */
-  var listeners = [];
-  function emit(u) { listeners.forEach(function (cb) { try { cb(u); } catch (e) {} }); }
-  window.BPAuth = {
-    mode: adapter.mode,
-    isSecure: adapter.secure,
-    isBackendConnected: adapter.mode === 'backend',
-    hasAccount: function () { return !!read(ACCT); },
-    login: function (email, password) { return adapter.login(email, password); },
-    signup: function (email, password) { return adapter.signup(email, password); },
-    logout: function () { return adapter.logout().then(function (r) { emit(null); return r; }); },
-    resetPassword: function (email) { return adapter.resetPassword(email); },
-    getSession: function () { return adapter.getSession(); },
-    onChange: function (cb) { listeners.push(cb); }
-  };
+  function setActive(adapter) {
+    active = adapter;
+    window.BPAuth.mode = adapter.mode;
+    window.BPAuth.isSecure = adapter.secure;
+    window.BPAuth.isBackendConnected = adapter.mode === 'backend';
+    updateBadge();
+  }
+  function updateBadge() {
+    var b = $('authBadge'); if (b) b.textContent = window.BPAuth.isSecure ? 'Secure sign-in' : 'Demo / local sign-in';
+    var note = $('authNote');
+    if (note) note.innerHTML = window.BPAuth.isSecure
+      ? 'Signing in with the secure backend. If it is unreachable you can continue in demo mode.'
+      : 'Demo / local sign-in — your account is stored only in this browser and is <strong>not</strong> secured by a server.';
+  }
 
   /* ---------------- UI ---------------- */
   function setStatus(msg, kind) {
@@ -109,7 +182,7 @@
   function setMode(mode) {
     var create = mode === 'create';
     $('authTitle').textContent = create ? 'Create your account' : 'Sign in';
-    $('authSub').textContent = create ? 'Choose an email and a password for this device.' : 'Welcome back — sign in to open your workspace.';
+    $('authSub').textContent = create ? 'Choose an email and a password.' : 'Welcome back — sign in to open your workspace.';
     $('authSubmit').textContent = create ? 'Create account' : 'Sign in';
     $('authConfirmRow').classList.toggle('hidden', !create);
     $('authPassword').setAttribute('autocomplete', create ? 'new-password' : 'current-password');
@@ -121,21 +194,18 @@
     var pw = $('authPassword').value || '';
     if (!isEmail(email)) { setStatus('Enter a valid email address.', 'err'); return; }
     if (pw.length < 6) { setStatus('Password must be at least 6 characters.', 'err'); return; }
-    if (!window.BPAuth.hasAccount()) {
-      if (pw !== ($('authConfirm').value || '')) { setStatus('The passwords do not match.', 'err'); return; }
-      setStatus('Creating your account…');
-      var r = await window.BPAuth.signup(email, pw);
-      if (!r.ok) { setStatus(r.error, 'err'); return; }
-      setStatus('Account created.', 'ok'); showApp(r.user); return;
-    }
-    setStatus('Signing in…');
-    var r2 = await window.BPAuth.login(email, pw);
-    if (!r2.ok) { setStatus(r2.error, 'err'); return; }
-    setStatus('Signed in.', 'ok'); showApp(r2.user);
+    var creating = !window.BPAuth.hasAccount();
+    if (creating && pw !== ($('authConfirm').value || '')) { setStatus('The passwords do not match.', 'err'); return; }
+    setStatus(creating ? 'Creating your account…' : 'Signing in…');
+    var r = creating ? await window.BPAuth.signup(email, pw) : await window.BPAuth.login(email, pw);
+    if (!r.ok) { setStatus(r.error, 'err'); if (r.offline) { var d = $('authDemo'); if (d) d.classList.remove('hidden'); } return; }
+    var d2 = $('authDemo'); if (d2) d2.classList.add('hidden');
+    setStatus(creating ? 'Account created.' : 'Signed in.', 'ok'); showApp(r.user);
   }
   async function reset() {
-    if (!confirm('Reset sign-in on this device? This deletes the local account and signs you out. Your business data is not touched.')) return;
+    if (!confirm('Reset sign-in? This signs you out' + (window.BPAuth.isSecure ? ' and sends a reset email.' : ' and deletes the local account (your data is not touched).'))) return;
     var r = await window.BPAuth.resetPassword($('authEmail').value || '');
+    if (window.BPAuth.isSecure) { setStatus(r.ok ? 'Reset email sent.' : r.error, r.ok ? 'ok' : 'err'); return; }
     $('authPassword').value = ''; $('authConfirm').value = '';
     setMode('create');
     setStatus(r.ok ? 'Local sign-in reset — create a new one.' : r.error, r.ok ? 'ok' : 'err');
@@ -146,14 +216,24 @@
     setStatus('Signed out.');
   }
   async function init() {
+    /* prefer the real backend when configured and reachable to load */
+    if (CONFIG.supabaseUrl && CONFIG.supabaseKey) {
+      try {
+        await loadSupabase();
+        sb = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
+        setActive(supabaseAdapter);
+        try { sb.auth.onAuthStateChange(function (_e, s) { if (s) showApp(s.user); else { showGate(); setMode('signin'); } }); } catch (e) {}
+      } catch (e) { setActive(localAdapter); }
+    }
     var s = await window.BPAuth.getSession();
     if (s.user) showApp(s.user); else { showGate(); setMode(window.BPAuth.hasAccount() ? 'signin' : 'create'); }
     var sub = $('authSubmit'); if (sub) sub.addEventListener('click', submit);
     var rp = $('authPassword'); if (rp) rp.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
     var rc = $('authConfirm'); if (rc) rc.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
     var rs = $('authReset'); if (rs) rs.addEventListener('click', reset);
+    var dm = $('authDemo'); if (dm) dm.addEventListener('click', function () { window.BPAuth.useDemo(); dm.classList.add('hidden'); setStatus('Demo mode: create a local account below.', 'ok'); setMode('create'); });
     var av = $('topAvatar'); if (av) av.addEventListener('click', signOut);
-    window.BPAuth.onChange(function (u) { if (u) showApp(u); else { showGate(); setMode(window.BPAuth.hasAccount() ? 'signin' : 'create'); } });
+    updateBadge();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();

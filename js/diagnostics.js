@@ -7,7 +7,7 @@
     ['Financial calculations', 'ready'],
     ['AI narratives', 'ready'],
     ['Reports & exports', 'ready'],
-    ['Local sign-in (demo)', 'demo'],
+    [window.BPAuth && window.BPAuth.isBackendConnected ? 'Authentication (Supabase)' : 'Local sign-in (demo)', window.BPAuth && window.BPAuth.isBackendConnected ? 'ready' : 'demo'],
     ['Data storage', 'demo'],
     ['Security', 'demo'],
     ['Multi-user & teams', 'backend'],
